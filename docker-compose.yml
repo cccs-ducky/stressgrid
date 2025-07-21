@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  coordinator:
+    build: .
+    command: ["/app/coordinator/_build/prod/rel/coordinator/bin/coordinator", "start"]
+    ports:
+      - "8000:8000"
+      - "9696:9696"
+
+  generator-1:
+    build: .
+    command: ["/app/generator/_build/prod/rel/generator/bin/generator", "start"]
+    environment:
+      - COORDINATOR_URL=ws://coordinator:9696
+      - GENERATOR_ID=generator-1
+    depends_on:
+      - coordinator

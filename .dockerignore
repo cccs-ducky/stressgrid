@@ -1,0 +1,35 @@
+# Version control
+.git
+.gitignore
+
+# Documentation
+README.md
+doc/
+
+# Terraform and infrastructure
+terraform/
+etc/
+
+# Build artifacts
+coordinator/_build/
+generator/_build/
+coordinator/management/node_modules/
+coordinator/management/build/
+client/node_modules/
+client/lib/
+
+# Dependencies
+coordinator/deps/
+generator/deps/
+
+# Logs and temporary files
+*.log
+.DS_Store
+.vscode/
+.idea/
+
+# Packer files
+coordinator/packer/
+generator/packer/
+coordinator/packer.sh
+generator/packer.sh 

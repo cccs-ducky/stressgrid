@@ -2,6 +2,8 @@
 
 Stressgrid is an open-source cloud-native tool for load testing at the scale of millions of simulated devices.
 
+Notes: Docker support added as part of this fork.
+
 ## Table of Contents
 
 - [Overview](#overview)
