@@ -22,9 +22,10 @@ defmodule Stressgrid.Coordinator.MixProject do
     [
       {:cowboy, "~> 2.6"},
       {:jason, "~> 1.1"},
+      # contains fix of include directory for otp-26
       {:hdr_histogram,
        git: "https://github.com/HdrHistogram/hdr_histogram_erl.git",
-       tag: "075798518aabd73a0037007989cde8bd6923b4d9"},
+       tag: "39991d346382e0add74fed2e8ec1cd5666061541"},
       {:ex_aws_cloudwatch, "~> 2.0"},
       {:httpoison, "~> 1.6"},
       {:dialyxir, "~> 1.0.0-rc.7", runtime: false}

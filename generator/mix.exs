@@ -21,9 +21,10 @@ defmodule Stressgrid.Generator.Mixfile do
   defp deps do
     [
       {:gun, "~> 1.3.0"},
+      # contains fix of include directory for otp-26
       {:hdr_histogram,
-       git: "https://github.com/HdrHistogram/hdr_histogram_erl.git",
-       tag: "075798518aabd73a0037007989cde8bd6923b4d9"},
+        git: "https://github.com/HdrHistogram/hdr_histogram_erl.git",
+        tag: "39991d346382e0add74fed2e8ec1cd5666061541"},
       {:jason, "~> 1.1"},
       {:bertex, "~> 1.3"},
       {:dialyxir, "~> 1.0.0-rc.7", runtime: false}
