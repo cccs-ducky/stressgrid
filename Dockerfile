@@ -9,7 +9,7 @@ RUN npm install && npm run build-css && npm run build
 WORKDIR /app/client
 RUN npm install && npm run build
 
-FROM hexpm/elixir:1.10.4-erlang-23.0.2-ubuntu-bionic-20200921 as elixir-builder
+FROM hexpm/elixir:1.17.1-erlang-27.0-ubuntu-noble-20240605 as elixir-builder
 
 RUN apt-get update && apt-get install -y \
     git \
@@ -23,8 +23,7 @@ RUN apt-get update && apt-get install -y \
     libtool \
     pkg-config
 
-RUN mix local.hex --force
-RUN mix local.rebar --force
+RUN mix local.hex --force && mix local.rebar --force
 
 WORKDIR /app
 COPY . .
