@@ -5,30 +5,65 @@ defmodule Stressgrid.Coordinator.MixProject do
     [
       app: :coordinator,
       version: "0.1.0",
-      elixir: "~> 1.7",
+      elixir: "~> 1.14",
+      elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
+      aliases: aliases(),
       deps: deps()
     ]
   end
 
   def application do
     [
-      extra_applications: [:logger],
+      extra_applications: [:logger, :runtime_tools],
       mod: {Stressgrid.Coordinator.Application, []}
     ]
   end
 
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
+
   defp deps do
     [
+      {:phoenix, "~> 1.7.21"},
+      {:phoenix_html, "~> 4.1"},
+      {:phoenix_live_reload, "~> 1.2", only: :dev},
+      {:phoenix_live_view, "~> 1.0"},
+      {:phoenix_live_dashboard, "~> 0.8.3"},
+      {:plug_cowboy, "~> 2.7"},
+      {:esbuild, "~> 0.8", runtime: Mix.env() == :dev},
+      {:tailwind, "~> 0.2.0", runtime: Mix.env() == :dev},
+      {:heroicons,
+       github: "tailwindlabs/heroicons",
+       tag: "v2.1.1",
+       sparse: "optimized",
+       app: false,
+       compile: false,
+       depth: 1},
+      {:telemetry_metrics, "~> 1.0"},
+      {:telemetry_poller, "~> 1.0"},
       {:cowboy, "~> 2.6"},
-      {:jason, "~> 1.1"},
-      # contains fix of include directory for otp-26
+      {:jason, "~> 1.2"},
+      # contains build fix for otp-26
       {:hdr_histogram,
        git: "https://github.com/HdrHistogram/hdr_histogram_erl.git",
        tag: "39991d346382e0add74fed2e8ec1cd5666061541"},
       {:ex_aws_cloudwatch, "~> 2.0"},
       {:httpoison, "~> 1.6"},
       {:dialyxir, "~> 1.0.0-rc.7", runtime: false}
+    ]
+  end
+
+  defp aliases do
+    [
+      setup: ["deps.get", "assets.setup", "assets.build"],
+      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.build": ["tailwind coordinator", "esbuild coordinator"],
+      "assets.deploy": [
+        "tailwind coordinator --minify",
+        "esbuild coordinator --minify",
+        "phx.digest"
+      ]
     ]
   end
 end

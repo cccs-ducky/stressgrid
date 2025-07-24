@@ -736,3 +736,14 @@ Example:
     #!/bin/bash
     echo "COORDINATOR_URL=ws://ip-172-31-22-7.us-west-1.compute.internal:9696" > /etc/default/stressgrid-generator.env
     service stressgrid-generator restart
+
+## Launching Phoenix
+
+```bash
+cd coordinator
+mix phx.server
+# or to run in IEx:
+iex -S mix phx.server
+```
+
+Now you can visit [`localhost:4000`](http://localhost:4000) from your browser.

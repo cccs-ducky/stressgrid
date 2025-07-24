@@ -21,6 +21,7 @@ defmodule Stressgrid.Coordinator.Application do
   @default_generators_port 9696
   @default_management_port 8000
 
+  @impl true
   def start(_type, _args) do
     generators_port = get_env_integer("GENERATORS_PORT", @default_generators_port)
     management_port = get_env_integer("MANAGEMENT_PORT", @default_management_port)
@@ -40,15 +41,29 @@ defmodule Stressgrid.Coordinator.Application do
       GeneratorRegistry,
       {Reporter, writer_configs: writer_configs},
       Scheduler,
+
+      # cowboy deps
       cowboy_sup(:generators_listener, generators_port, generators_dispatch()),
-      cowboy_sup(:management_listener, management_port, management_dispatch())
+      cowboy_sup(:management_listener, management_port, management_dispatch()),
+
+      # phoenix deps
+      Stressgrid.CoordinatorWeb.Telemetry,
+      {Phoenix.PubSub, name: Stressgrid.Coordinator.PubSub},
+      Stressgrid.CoordinatorWeb.Endpoint
     ]
 
     Logger.info("Listening for generators on port #{generators_port}")
     Logger.info("Listening for management on port #{management_port}")
 
     opts = [strategy: :one_for_one, name: Stressgrid.Coordinator.Supervisor]
+
     Supervisor.start_link(children, opts)
+  end
+
+  @impl true
+  def config_change(changed, _new, removed) do
+    Stressgrid.CoordinatorWeb.Endpoint.config_change(changed, removed)
+    :ok
   end
 
   defp cowboy_sup(id, port, dispatch) do
