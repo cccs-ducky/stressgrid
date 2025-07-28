@@ -50,7 +50,7 @@ defmodule Stressgrid.Coordinator.MixProject do
        tag: "39991d346382e0add74fed2e8ec1cd5666061541"},
       {:ex_aws_cloudwatch, "~> 2.0"},
       {:httpoison, "~> 1.6"},
-      {:dialyxir, "~> 1.0.0-rc.7", runtime: false}
+      {:dialyxir, "~> 1.4", runtime: false}
     ]
   end
 

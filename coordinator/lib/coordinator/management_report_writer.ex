@@ -10,7 +10,7 @@ defmodule Stressgrid.Coordinator.ManagementReportWriter do
   defstruct stats_history: %{}
 
   def init(_) do
-    :ok = Management.notify_all(%{"stats" => nil})
+    :ok = Management.notify_all(%{"stats" => %{}})
 
     nil
   end
@@ -63,7 +63,7 @@ defmodule Stressgrid.Coordinator.ManagementReportWriter do
   end
 
   def finish(result_info, _, _) do
-    :ok = Management.notify_all(%{"stats" => nil})
+    :ok = Management.notify_all(%{"stats" => %{}})
 
     result_info
   end

@@ -1,11 +1,765 @@
 defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   use Stressgrid.CoordinatorWeb, :live_view
 
+  alias Stressgrid.Coordinator.{Management, Scheduler, Reporter}
+
+  @default_script """
+  0..100 |> Enum.each(fn _ ->
+    get("/")
+    delay(900, 0.1)
+  end)
+  """
+
+  @default_json """
+  {
+    "name": "10k",
+    "addresses": [
+      {
+        "host": "localhost",
+        "port": 5000,
+        "protocol": "http"
+      }
+    ],
+    "blocks": [
+      {
+        "script": #{@default_script},
+        "params": {},
+        "size": 10000
+      }
+    ],
+    "opts": {
+      "ramp_steps": 1000,
+      "rampup_step_ms": 900,
+      "sustain_ms": 900000,
+      "rampdown_step_ms": 900
+    }
+  }
+  """
+
+  def mount(_params, _session, socket) do
+    if connected?(socket) do
+      Management.connect()
+    end
+
+    {:ok,
+     assign(socket,
+       state: %{},
+       plan_modal: false,
+       advanced: false,
+       error: nil,
+       name: "10k",
+       host: "localhost",
+       port: "5000",
+       protocol: "http",
+       script: @default_script,
+       params: "{}",
+       desired_size: "10000",
+       rampup_secs: "900",
+       sustain_secs: "900",
+       rampdown_secs: "900",
+       json: @default_json
+     )}
+  end
+
+  def handle_info({:notify, state}, socket) do
+    {:noreply, assign(socket, :state, format_state(Map.merge(socket.assigns.state, state)))}
+  end
+
+  defp format_state(state) do
+    %{
+      state
+      | "stats" =>
+          state
+          |> Map.get("stats", %{})
+          |> Map.new(fn {k, v} -> {(if is_atom(k), do: Atom.to_string(k), else: k), v} end)
+    }
+  end
+
+  def handle_event("show_plan_modal", _params, socket) do
+    {:noreply, assign(socket, plan_modal: true, error: nil)}
+  end
+
+  def handle_event("hide_plan_modal", _params, socket) do
+    {:noreply, assign(socket, plan_modal: false)}
+  end
+
+  def handle_event("toggle_advanced", _params, socket) do
+    {:noreply, assign(socket, advanced: not socket.assigns.advanced)}
+  end
+
+  def handle_event("update_form", %{"_target" => [field]} = params, socket) do
+    {:noreply, assign(socket, String.to_atom(field), Map.fetch!(params, field))}
+  end
+
+  def handle_event("start_run", params, socket) do
+    case build_run_plan(params, socket.assigns) do
+      {:ok, plan} ->
+        send_websocket_message([%{"start_run" => plan}])
+        {:noreply, assign(socket, plan_modal: false, error: nil)}
+
+      {:error, error} ->
+        {:noreply, assign(socket, error: error)}
+    end
+  end
+
+  def handle_event("abort_run", _params, socket) do
+    send_websocket_message(["abort_run"])
+    {:noreply, socket}
+  end
+
+  def handle_event("remove_report", %{"id" => id}, socket) do
+    send_websocket_message([%{"remove_report" => %{"id" => id}}])
+    {:noreply, socket}
+  end
+
+  defp build_run_plan(%{"advanced" => "true", "json" => json}, _assigns) do
+    case Jason.decode(json) do
+      {:ok, plan} -> {:ok, plan}
+      {:error, _} -> {:error, "Invalid JSON"}
+    end
+  end
+
+  defp build_run_plan(_params, assigns) do
+    with {:ok, size} <- parse_int(assigns.desired_size),
+         {:ok, port} <- parse_int(assigns.port),
+         {:ok, rampup} <- parse_int(assigns.rampup_secs),
+         {:ok, sustain} <- parse_int(assigns.sustain_secs),
+         {:ok, rampdown} <- parse_int(assigns.rampdown_secs),
+         {:ok, params_obj} <- Jason.decode(assigns.params) do
+      generator_count = Map.get(assigns.state, "generator_count", 0)
+      ramp_step_size = generator_count * 10
+      ramp_steps = if ramp_step_size > 0, do: div(size, ramp_step_size), else: 1
+      effective_size = ramp_steps * ramp_step_size
+
+      plan = %{
+        "name" => assigns.name,
+        "addresses" => build_addresses(assigns.host, port, assigns.protocol),
+        "blocks" => [
+          %{
+            "script" => assigns.script,
+            "params" => params_obj,
+            "size" => effective_size
+          }
+        ],
+        "opts" => %{
+          "ramp_steps" => ramp_steps,
+          "rampup_step_ms" => div(rampup * 1000, ramp_steps),
+          "sustain_ms" => sustain * 1000,
+          "rampdown_step_ms" => div(rampdown * 1000, ramp_steps)
+        }
+      }
+
+      {:ok, plan}
+    else
+      {:error, msg} -> {:error, msg}
+    end
+  end
+
+  defp build_addresses(host_string, port, protocol) do
+    host_string
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.map(fn host ->
+      %{
+        "host" => host,
+        "port" => port,
+        "protocol" => protocol
+      }
+    end)
+  end
+
+  defp parse_int(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, ""} -> {:ok, int}
+      _ -> {:error, "Invalid number: #{value}"}
+    end
+  end
+
+  defp send_websocket_message(message) do
+    case message do
+      [%{"start_run" => plan}] ->
+        name = Map.get(plan, "name")
+        blocks = convert_blocks(Map.get(plan, "blocks", []))
+        addresses = convert_addresses(Map.get(plan, "addresses", []))
+        opts = convert_opts(Map.get(plan, "opts", %{}))
+
+        Scheduler.start_run(name, blocks, addresses, opts)
+
+      ["abort_run"] ->
+        Scheduler.abort_run()
+
+      [%{"remove_report" => %{"id" => id}}] ->
+        Reporter.remove_report(id)
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp convert_blocks(blocks_json) do
+    Enum.map(blocks_json, fn block ->
+      %{
+        script: Map.get(block, "script", ""),
+        params: Map.get(block, "params", %{}),
+        size: Map.get(block, "size", 0)
+      }
+    end)
+  end
+
+  defp convert_addresses(addresses_json) do
+    Enum.flat_map(addresses_json, fn address ->
+      host = Map.get(address, "host")
+      port = Map.get(address, "port", 80)
+      protocol = String.to_atom(Map.get(address, "protocol", "http"))
+
+      case :inet.gethostbyname(String.to_charlist(host)) do
+        {:ok, {:hostent, _, _, _, _, ips}} ->
+          Enum.map(ips, fn ip -> {protocol, ip, port, host} end)
+
+        _ ->
+          []
+      end
+    end)
+  end
+
+  defp convert_opts(opts_json) do
+    [
+      ramp_steps: Map.get(opts_json, "ramp_steps", 1),
+      rampup_step_ms: Map.get(opts_json, "rampup_step_ms", 1000),
+      sustain_ms: Map.get(opts_json, "sustain_ms", 60000),
+      rampdown_step_ms: Map.get(opts_json, "rampdown_step_ms", 1000)
+    ]
+  end
+
   def render(assigns) do
     ~H"""
-    <section class="phx-hero">
-      <h2>okay</h2>
-    </section>
+    <div class="container mx-auto p-4 max-w-7xl">
+      <!-- Plan Modal -->
+      <%= if @plan_modal do %>
+        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+              <h3 class="text-lg font-medium text-gray-900 mb-4">Start Load Test</h3>
+
+              <%= if @error do %>
+                <div class="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                  <%= @error %>
+                </div>
+              <% end %>
+
+              <form phx-submit="start_run">
+                <div class="mb-4">
+                  <label class="flex items-center">
+                    <input
+                      type="checkbox"
+                      class="rounded border-gray-300 text-blue-600"
+                      phx-click="toggle_advanced"
+                      checked={@advanced}
+                    />
+                    <span class="ml-2 text-sm text-gray-700">Advanced Mode</span>
+                  </label>
+                </div>
+
+                <%= if @advanced do %>
+                  <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">JSON Configuration</label>
+                    <textarea
+                      name="json"
+                      class="w-full h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      phx-change="update_form"
+                      phx-value-field="json"
+                    ><%= @json %></textarea>
+                  </div>
+                <% else %>
+                  <div class="space-y-4">
+                    <!-- Basic Configuration -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Run Name</label>
+                        <input
+                          type="text"
+                          name="name"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={@name}
+                          phx-change="update_form"
+                          phx-value-field="name"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Desired Devices</label>
+                        <input
+                          type="number"
+                          name="desired_size"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={@desired_size}
+                          phx-change="update_form"
+                          phx-value-field="desired_size"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Effective Devices</label>
+                        <input
+                          type="text"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                          value={calculate_effective_size(@state, @desired_size)}
+                          readonly
+                        />
+                        <p class="text-xs text-gray-500 mt-1">
+                          Multiples of ramp step size: <%= calculate_ramp_step_size(@state) %>
+                        </p>
+                      </div>
+                    </div>
+
+                    <!-- Target Configuration -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Protocol</label>
+                        <select
+                          name="protocol"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          phx-change="update_form"
+                          phx-value-field="protocol"
+                        >
+                          <%= for {value, label} <- protocol_options() do %>
+                            <option value={value} selected={@protocol == value}><%= label %></option>
+                          <% end %>
+                        </select>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Target Host(s)</label>
+                        <input
+                          type="text"
+                          name="host"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={@host}
+                          phx-change="update_form"
+                          phx-value-field="host"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Comma separated</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Target Port</label>
+                        <input
+                          type="number"
+                          name="port"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={@port}
+                          phx-change="update_form"
+                          phx-value-field="port"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Timing Configuration -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Rampup (seconds)</label>
+                        <input
+                          type="number"
+                          name="rampup_secs"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={@rampup_secs}
+                          phx-change="update_form"
+                          phx-value-field="rampup_secs"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Sustain (seconds)</label>
+                        <input
+                          type="number"
+                          name="sustain_secs"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={@sustain_secs}
+                          phx-change="update_form"
+                          phx-value-field="sustain_secs"
+                        />
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Rampdown (seconds)</label>
+                        <input
+                          type="number"
+                          name="rampdown_secs"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          value={@rampdown_secs}
+                          phx-change="update_form"
+                          phx-value-field="rampdown_secs"
+                        />
+                      </div>
+                    </div>
+
+                    <!-- Script and Parameters -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Script</label>
+                        <textarea
+                          name="script"
+                          class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          phx-change="update_form"
+                          phx-value-field="script"
+                        ><%= @script %></textarea>
+                        <p class="text-xs text-gray-500 mt-1">Elixir</p>
+                      </div>
+                      <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Parameters</label>
+                        <textarea
+                          name="params"
+                          class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          phx-change="update_form"
+                          phx-value-field="params"
+                        ><%= @params %></textarea>
+                        <p class="text-xs text-gray-500 mt-1">JSON</p>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+
+                <input type="hidden" name="advanced" value={@advanced} />
+
+                <div class="flex justify-end space-x-2 pt-4">
+                  <button
+                    type="button"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    phx-click="hide_plan_modal"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+                  >
+                    Start
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      <% end %>
+
+      <!-- Main Dashboard -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Status Panel -->
+        <div class="bg-white shadow rounded-lg">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Run</h3>
+          </div>
+          <div class="p-6">
+            <div class="space-y-4">
+              <!-- Current Run -->
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-700">Current Run</span>
+                <div class="flex items-center space-x-3">
+                  <%= if get_in(@state, ["run", "id"]) do %>
+                    <span class="text-sm text-gray-900"><%= get_in(@state, ["run", "id"]) %></span>
+                    <button
+                      class="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                      phx-click="abort_run"
+                    >
+                      Abort
+                    </button>
+                  <% else %>
+                    <button
+                      class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                      phx-click="show_plan_modal"
+                    >
+                      Start
+                    </button>
+                  <% end %>
+                </div>
+              </div>
+
+              <!-- State -->
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-700">State</span>
+                <div class="flex items-center space-x-3">
+                  <span class="text-sm font-semibold text-gray-900">
+                    <%= get_in(@state, ["run", "state"]) || "idle" %>
+                  </span>
+                  <%= if get_in(@state, ["run", "remaining_ms"]) do %>
+                    <span class="text-sm text-gray-600">
+                      <%= div(get_in(@state, ["run", "remaining_ms"]), 1000) %> seconds remaining
+                    </span>
+                  <% end %>
+                </div>
+              </div>
+
+              <!-- Generators -->
+              <div class="flex justify-between items-center">
+                <span class="text-sm font-medium text-gray-700">Generators</span>
+                <span class="text-sm text-gray-900"><%= Map.get(@state, "generator_count", 0) %></span>
+              </div>
+
+              <!-- Script Error -->
+              <%= if get_in(@state, ["last_script_error"]) do %>
+                <div class="flex justify-between items-start">
+                  <span class="text-sm font-medium text-gray-700">Script Error</span>
+                  <div class="flex items-center space-x-2">
+                    <span class="text-sm text-red-600 max-w-xs">
+                      <%= get_in(@state, ["last_script_error", "description"]) %>
+                    </span>
+                    <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clip-rule="evenodd"></path>
+                    </svg>
+                  </div>
+                </div>
+              <% end %>
+
+              <!-- Statistics -->
+              <%= for {key, values} <- Map.get(@state, "stats", %{}) do %>
+                <div class="flex justify-between items-center">
+                  <span class="text-sm font-medium text-gray-700"><%= format_stat_name(key) %></span>
+                  <div class="flex items-center space-x-3">
+                    <span class="text-sm text-gray-900"><%= format_stat_value(key, values) %></span>
+                    <%= if key == "cpu_percent" do %>
+                      <svg class={["w-4 h-4", if(is_red_cpu?(values), do: "text-red-500", else: "text-green-500")]} fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+                      </svg>
+                    <% end %>
+                    <%= if is_error_stat?(key) do %>
+                      <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clip-rule="evenodd"></path>
+                      </svg>
+                    <% end %>
+                  </div>
+                </div>
+              <% end %>
+            </div>
+          </div>
+        </div>
+
+        <!-- Reports Panel -->
+        <div class="bg-white shadow rounded-lg">
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Reports</h3>
+          </div>
+          <div class="p-6">
+            <%= if Map.get(@state, "reports") != [] do %>
+              <div class="space-y-3">
+                <%= for report <- Map.get(@state, "reports", []) do %>
+                  <div class="border border-gray-200 rounded-lg p-4">
+                    <div class="flex justify-between items-start">
+                      <div class="flex-1">
+                        <div class="flex items-center space-x-2">
+                          <span class="text-sm font-medium text-gray-900"><%= Map.get(report, "id") %></span>
+                          <button
+                            class="text-gray-400 hover:text-gray-600"
+                            onclick={"navigator.clipboard.writeText('#{Map.get(report, "id")}')"}
+                            title="Copy to clipboard"
+                          >
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path>
+                              <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path>
+                            </svg>
+                          </button>
+                        </div>
+                        <div class="mt-2 flex items-center space-x-4">
+                          <div class="flex items-center space-x-1">
+                            <span class="text-xs text-gray-500">Errors</span>
+                            <svg class={["w-4 h-4", if(has_errors?(report), do: "text-red-500", else: "text-green-500")]} fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clip-rule="evenodd"></path>
+                            </svg>
+                          </div>
+                          <div class="flex items-center space-x-1">
+                            <span class="text-xs text-gray-500">Max CPU</span>
+                            <span class="text-xs text-gray-900"><%= get_in(report, ["maximums", "cpu_percent"]) || 0 %>%</span>
+                            <svg class={["w-4 h-4", if(is_red_cpu_max?(report), do: "text-red-500", else: "text-green-500")]} fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                      <div class="flex items-center space-x-2">
+                        <%= if get_in(report, ["result", "csv_url"]) do %>
+                          <a
+                            href={get_in(report, ["result", "csv_url"])}
+                            target="_blank"
+                            class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100"
+                          >
+                            CSV
+                          </a>
+                        <% end %>
+                        <%= if get_in(report, ["result", "cw_url"]) do %>
+                          <a
+                            href={get_in(report, ["result", "cw_url"])}
+                            target="_blank"
+                            class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100"
+                          >
+                            CloudWatch
+                          </a>
+                        <% end %>
+                        <button
+                          class="px-2 py-1 text-xs font-medium text-red-600 bg-red-50 rounded hover:bg-red-100"
+                          phx-click="remove_report"
+                          phx-value-id={Map.get(report, "id")}
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            <% else %>
+              <p class="text-sm text-gray-500">No reports available</p>
+            <% end %>
+          </div>
+        </div>
+      </div>
+    </div>
     """
+  end
+
+  # Helper functions
+  defp protocol_options do
+    [
+      {"http10", "HTTP 1.0"},
+      {"http10s", "HTTP 1.0 over TLS"},
+      {"http", "HTTP 1.1"},
+      {"https", "HTTP 1.1 over TLS"},
+      {"http2", "HTTP 2"},
+      {"http2s", "HTTP 2 over TLS"},
+      {"tcp", "TCP"},
+      {"udp", "UDP"}
+    ]
+  end
+
+  defp calculate_ramp_step_size(state) do
+    generator_count = Map.get(state, "generator_count", 0)
+    generator_count * 10
+  end
+
+  defp calculate_effective_size(state, desired_size_str) do
+    case Integer.parse(desired_size_str) do
+      {desired_size, ""} ->
+        ramp_step_size = calculate_ramp_step_size(state)
+
+        if ramp_step_size > 0 do
+          ramp_steps = div(desired_size, ramp_step_size)
+          ramp_steps * ramp_step_size
+        else
+          0
+        end
+
+      _ ->
+        0
+    end
+  end
+
+  defp format_stat_name(key) do
+    suffix =
+      cond do
+        String.ends_with?(key, "_per_second") -> "(rate)"
+        String.ends_with?(key, "_bytes_per_second") -> "(rate, bytes)"
+        String.ends_with?(key, "_percent") -> "(%)"
+        String.ends_with?(key, "_us") -> "(latency)"
+        String.ends_with?(key, "_bytes_count") -> "(load, bytes)"
+        String.ends_with?(key, "_count") -> "(count)"
+        true -> ""
+      end
+
+    base =
+      key
+      |> String.replace("_", " ")
+      |> String.split()
+      |> Enum.map(&String.capitalize/1)
+      |> Enum.join(" ")
+
+    if suffix == "", do: base, else: "#{base} #{suffix}"
+  end
+
+  defp format_stat_value(key, values) when is_list(values) do
+    case List.first(values) do
+      nil ->
+        "-"
+
+      value when is_number(value) ->
+        cond do
+          String.ends_with?(key, "_bytes_per_second") ->
+            format_bytes(value) <> "/sec"
+
+          String.ends_with?(key, "_per_second") ->
+            format_number(value) <> " /sec"
+
+          String.ends_with?(key, "_percent") ->
+            "#{trunc(value)} %"
+
+          String.ends_with?(key, "_us") ->
+            format_time_us(value)
+
+          String.ends_with?(key, "_bytes_count") ->
+            format_bytes(value)
+
+          String.ends_with?(key, "_count") ->
+            format_number(value)
+
+          true ->
+            to_string(value)
+        end
+
+      value ->
+        to_string(value)
+    end
+  end
+
+  defp format_bytes(bytes) when bytes >= 1_000_000_000 do
+    "#{Float.round(bytes / 1_000_000_000, 1)} GB"
+  end
+
+  defp format_bytes(bytes) when bytes >= 1_000_000 do
+    "#{Float.round(bytes / 1_000_000, 1)} MB"
+  end
+
+  defp format_bytes(bytes) when bytes >= 1_000 do
+    "#{Float.round(bytes / 1_000, 1)} KB"
+  end
+
+  defp format_bytes(bytes), do: "#{bytes} B"
+
+  defp format_number(num) when num >= 1_000_000 do
+    "#{Float.round(num / 1_000_000, 1)}M"
+  end
+
+  defp format_number(num) when num >= 1_000 do
+    "#{Float.round(num / 1_000, 1)}K"
+  end
+
+  defp format_number(num), do: to_string(trunc(num))
+
+  defp format_time_us(us) when us >= 1_000_000 do
+    "#{trunc(us / 1_000_000)} seconds"
+  end
+
+  defp format_time_us(us) when us >= 1_000 do
+    "#{trunc(us / 1_000)} milliseconds"
+  end
+
+  defp format_time_us(us), do: "#{us} microseconds"
+
+  defp is_red_cpu?(values) when is_list(values) do
+    case List.first(values) do
+      value when is_number(value) -> value > 80
+      _ -> false
+    end
+  end
+
+  defp is_red_cpu_max?(report) do
+    case get_in(report, ["maximums", "cpu_percent"]) do
+      value when is_number(value) -> value > 80
+      _ -> false
+    end
+  end
+
+  defp is_error_stat?(key) do
+    key_str = Atom.to_string(key)
+
+    String.ends_with?(key_str, "_error_count") or String.contains?(key_str, "error")
+  end
+
+  defp has_errors?(report) do
+    script_error = Map.get(report, "script_error")
+    maximums = Map.get(report, "maximums", %{})
+    error_keys = Enum.filter(Map.keys(maximums), &is_error_stat?/1)
+
+    script_error != nil or length(error_keys) > 0
   end
 end

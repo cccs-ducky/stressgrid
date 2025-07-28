@@ -27,7 +27,7 @@ defmodule Stressgrid.Generator.Mixfile do
         tag: "39991d346382e0add74fed2e8ec1cd5666061541"},
       {:jason, "~> 1.1"},
       {:bertex, "~> 1.3"},
-      {:dialyxir, "~> 1.0.0-rc.7", runtime: false}
+      {:dialyxir, "~> 1.4", runtime: false}
     ]
   end
 end

@@ -22,4 +22,4 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 coordinator-*.tar
 
-/priv/management
+/priv/static/management

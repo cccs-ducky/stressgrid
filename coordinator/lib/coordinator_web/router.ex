@@ -18,6 +18,7 @@ defmodule Stressgrid.CoordinatorWeb.Router do
     pipe_through :browser
 
     live "/", ManagementLive, :index
+    live "/management", ManagementLive, :index
   end
 
   # Other scopes may use custom stacks.

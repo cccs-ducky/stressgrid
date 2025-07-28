@@ -5,8 +5,8 @@ defmodule Stressgrid.Coordinator.CsvReportWriter do
 
   @behaviour ReportWriter
 
-  @management_base "priv/management"
-  @results_base "results"
+  @management_base_priv "priv/static/management"
+  @management_base_public "management"
 
   defstruct table: %{}
 
@@ -68,13 +68,13 @@ defmodule Stressgrid.Coordinator.CsvReportWriter do
     write_csv(table, Path.join([tmp_directory, "results.csv"]))
 
     filename = "#{id}.tar.gz"
-    directory = Path.join([Application.app_dir(:coordinator), @management_base, @results_base])
+    directory = Path.join([Application.app_dir(:coordinator), @management_base_priv])
     File.mkdir_p!(directory)
 
     result_info =
       case System.cmd("tar", ["czf", Path.join(directory, filename), "-C", System.tmp_dir(), id]) do
         {_, 0} ->
-          result_info |> Map.merge(%{"csv_url" => Path.join([@results_base, filename])})
+          result_info |> Map.merge(%{"csv_url" => Path.join([@management_base_public, filename])})
 
         _ ->
           result_info

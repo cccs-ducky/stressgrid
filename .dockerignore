@@ -15,6 +15,7 @@ coordinator/_build/
 generator/_build/
 coordinator/management/node_modules/
 coordinator/management/build/
+coordinator/priv/static/management/
 client/node_modules/
 client/lib/
 
@@ -32,4 +33,4 @@ generator/deps/
 coordinator/packer/
 generator/packer/
 coordinator/packer.sh
-generator/packer.sh 
+generator/packer.sh
