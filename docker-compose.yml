@@ -5,6 +5,7 @@ services:
     build: .
     command: ["/app/coordinator/_build/prod/rel/coordinator/bin/coordinator", "start"]
     ports:
+      - "4000:4000"
       - "8000:8000"
       - "9696:9696"
 

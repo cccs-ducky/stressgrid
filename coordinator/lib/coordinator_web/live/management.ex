@@ -4,10 +4,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   alias Stressgrid.Coordinator.{Management, Scheduler, Reporter}
 
   @default_script """
-  0..100 |> Enum.each(fn _ ->
-    get("/")
-    delay(900, 0.1)
-  end)
+  run_script("MessagePublish")
   """
 
   @default_json """
@@ -17,7 +14,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       {
         "host": "localhost",
         "port": 5000,
-        "protocol": "http"
+        "protocol": "script"
       }
     ],
     "blocks": [
@@ -50,7 +47,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
        name: "10k",
        host: "localhost",
        port: "5000",
-       protocol: "http",
+       protocol: "script",
        script: @default_script,
        params: "{}",
        desired_size: "10000",
@@ -71,8 +68,13 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       | "stats" =>
           state
           |> Map.get("stats", %{})
-          |> Map.new(fn {k, v} -> {(if is_atom(k), do: Atom.to_string(k), else: k), v} end)
+          |> Map.new(fn {k, v} -> {if(is_atom(k), do: Atom.to_string(k), else: k), v} end)
     }
+  end
+
+  def handle_event("load_settings", settings, socket) do
+    {:noreply,
+     assign(socket, settings |> Enum.into(%{}, fn {k, v} -> {String.to_atom(k), v} end))}
   end
 
   def handle_event("show_plan_modal", _params, socket) do
@@ -84,11 +86,17 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   end
 
   def handle_event("toggle_advanced", _params, socket) do
-    {:noreply, assign(socket, advanced: not socket.assigns.advanced)}
+    {:noreply,
+     assign(socket, advanced: not socket.assigns.advanced)
+     |> push_event("save_settings", %{advanced: not socket.assigns.advanced})}
   end
 
   def handle_event("update_form", %{"_target" => [field]} = params, socket) do
-    {:noreply, assign(socket, String.to_atom(field), Map.fetch!(params, field))}
+    value = Map.fetch!(params, field)
+
+    {:noreply,
+     assign(socket, String.to_atom(field), value)
+     |> push_event("save_settings", %{field => value})}
   end
 
   def handle_event("start_run", params, socket) do
@@ -129,6 +137,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       generator_count = Map.get(assigns.state, "generator_count", 0)
       ramp_step_size = generator_count * 10
       ramp_steps = if ramp_step_size > 0, do: div(size, ramp_step_size), else: 1
+      ramp_steps = max(ramp_steps, 1)
       effective_size = ramp_steps * ramp_step_size
 
       plan = %{
@@ -233,16 +242,17 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
   def render(assigns) do
     ~H"""
-    <div class="container mx-auto p-4 max-w-7xl">
+    <div id="settings-storage" class="container mx-auto p-4 max-w-7xl"
+         phx-hook="SettingsStorage">
       <!-- Plan Modal -->
       <%= if @plan_modal do %>
-        <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+        <div id="plan-modal" phx-hook="PlanModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 dark:bg-gray-900 dark:bg-opacity-80 overflow-y-auto h-full w-full z-50">
+          <div class="relative top-20 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white dark:bg-gray-800 dark:border-gray-700">
             <div class="mt-3">
-              <h3 class="text-lg font-medium text-gray-900 mb-4">Start Load Test</h3>
+              <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Start Load Test</h3>
 
               <%= if @error do %>
-                <div class="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+                <div class="mb-4 bg-red-50 border border-red-200 text-red-700 dark:bg-red-900 dark:border-red-700 dark:text-red-200 px-4 py-3 rounded">
                   <%= @error %>
                 </div>
               <% end %>
@@ -252,20 +262,20 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                   <label class="flex items-center">
                     <input
                       type="checkbox"
-                      class="rounded border-gray-300 text-blue-600"
+                      class="rounded border-gray-300 text-blue-600 dark:border-gray-600 dark:bg-gray-700"
                       phx-click="toggle_advanced"
                       checked={@advanced}
                     />
-                    <span class="ml-2 text-sm text-gray-700">Advanced Mode</span>
+                    <span class="ml-2 text-sm text-gray-700 dark:text-gray-200">Advanced Mode</span>
                   </label>
                 </div>
 
                 <%= if @advanced do %>
                   <div class="mb-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">JSON Configuration</label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">JSON Configuration</label>
                     <textarea
                       name="json"
-                      class="w-full h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                      class="w-full h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                       phx-change="update_form"
                       phx-value-field="json"
                     ><%= @json %></textarea>
@@ -275,36 +285,36 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                     <!-- Basic Configuration -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Run Name</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Run Name</label>
                         <input
                           type="text"
                           name="name"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           value={@name}
                           phx-change="update_form"
                           phx-value-field="name"
                         />
                       </div>
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Desired Devices</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Desired Devices</label>
                         <input
                           type="number"
                           name="desired_size"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           value={@desired_size}
                           phx-change="update_form"
                           phx-value-field="desired_size"
                         />
                       </div>
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Effective Devices</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Effective Devices</label>
                         <input
                           type="text"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
                           value={calculate_effective_size(@state, @desired_size)}
                           readonly
                         />
-                        <p class="text-xs text-gray-500 mt-1">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           Multiples of ramp step size: <%= calculate_ramp_step_size(@state) %>
                         </p>
                       </div>
@@ -313,10 +323,10 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                     <!-- Target Configuration -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Protocol</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Protocol</label>
                         <select
                           name="protocol"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           phx-change="update_form"
                           phx-value-field="protocol"
                         >
@@ -325,61 +335,65 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                           <% end %>
                         </select>
                       </div>
+                      <%= unless @protocol == "script" do %>
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Target Host(s)</label>
+                          <input
+                            type="text"
+                            name="host"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                            value={@host}
+                            phx-change="update_form"
+                            phx-value-field="host"
+                          />
+                          <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Comma separated</p>
+                        </div>
+                      <% end %>
+                      <%= unless @protocol == "script" do %>
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Target Host(s)</label>
-                        <input
-                          type="text"
-                          name="host"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          value={@host}
-                          phx-change="update_form"
-                          phx-value-field="host"
-                        />
-                        <p class="text-xs text-gray-500 mt-1">Comma separated</p>
-                      </div>
-                      <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Target Port</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Target Port</label>
                         <input
                           type="number"
                           name="port"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           value={@port}
                           phx-change="update_form"
                           phx-value-field="port"
                         />
                       </div>
+                      <% end %>
                     </div>
 
                     <!-- Timing Configuration -->
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Rampup (seconds)</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Rampup (seconds)</label>
                         <input
                           type="number"
                           name="rampup_secs"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           value={@rampup_secs}
                           phx-change="update_form"
                           phx-value-field="rampup_secs"
                         />
                       </div>
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Sustain (seconds)</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Sustain (seconds)</label>
                         <input
                           type="number"
                           name="sustain_secs"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           value={@sustain_secs}
                           phx-change="update_form"
                           phx-value-field="sustain_secs"
                         />
                       </div>
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Rampdown (seconds)</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Rampdown (seconds)</label>
                         <input
                           type="number"
                           name="rampdown_secs"
-                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           value={@rampdown_secs}
                           phx-change="update_form"
                           phx-value-field="rampdown_secs"
@@ -390,24 +404,24 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                     <!-- Script and Parameters -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Script</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Script</label>
                         <textarea
                           name="script"
-                          class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           phx-change="update_form"
                           phx-value-field="script"
                         ><%= @script %></textarea>
-                        <p class="text-xs text-gray-500 mt-1">Elixir</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Elixir</p>
                       </div>
                       <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Parameters</label>
+                        <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Parameters</label>
                         <textarea
                           name="params"
-                          class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
                           phx-change="update_form"
                           phx-value-field="params"
                         ><%= @params %></textarea>
-                        <p class="text-xs text-gray-500 mt-1">JSON</p>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">JSON</p>
                       </div>
                     </div>
                   </div>
@@ -418,14 +432,14 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                 <div class="flex justify-end space-x-2 pt-4">
                   <button
                     type="button"
-                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                    class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700 dark:hover:bg-gray-700"
                     phx-click="hide_plan_modal"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+                    class="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
                   >
                     Start
                   </button>
@@ -437,29 +451,29 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       <% end %>
 
       <!-- Main Dashboard -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
         <!-- Status Panel -->
-        <div class="bg-white shadow rounded-lg">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Run</h3>
+        <div class="bg-white shadow rounded-lg dark:bg-gray-800 dark:shadow-lg">
+          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Run</h3>
           </div>
           <div class="p-6">
             <div class="space-y-4">
               <!-- Current Run -->
               <div class="flex justify-between items-center">
-                <span class="text-sm font-medium text-gray-700">Current Run</span>
-                <div class="flex items-center space-x-3">
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Current Run</span>
+                <div id="current-run" class="flex items-center space-x-3" phx-hook="CurrentRun">
                   <%= if get_in(@state, ["run", "id"]) do %>
-                    <span class="text-sm text-gray-900"><%= get_in(@state, ["run", "id"]) %></span>
+                    <span class="text-sm text-gray-900 dark:text-gray-100"><%= get_in(@state, ["run", "id"]) %></span>
                     <button
-                      class="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700"
+                      class="px-3 py-1 text-xs font-medium text-white bg-red-600 rounded hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
                       phx-click="abort_run"
                     >
                       Abort
                     </button>
                   <% else %>
                     <button
-                      class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700"
+                      class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
                       phx-click="show_plan_modal"
                     >
                       Start
@@ -470,13 +484,13 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
               <!-- State -->
               <div class="flex justify-between items-center">
-                <span class="text-sm font-medium text-gray-700">State</span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">State</span>
                 <div class="flex items-center space-x-3">
-                  <span class="text-sm font-semibold text-gray-900">
+                  <span class="text-sm font-semibold text-gray-900 dark:text-gray-100">
                     <%= get_in(@state, ["run", "state"]) || "idle" %>
                   </span>
                   <%= if get_in(@state, ["run", "remaining_ms"]) do %>
-                    <span class="text-sm text-gray-600">
+                    <span class="text-sm text-gray-600 dark:text-gray-400">
                       <%= div(get_in(@state, ["run", "remaining_ms"]), 1000) %> seconds remaining
                     </span>
                   <% end %>
@@ -485,19 +499,19 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
               <!-- Generators -->
               <div class="flex justify-between items-center">
-                <span class="text-sm font-medium text-gray-700">Generators</span>
-                <span class="text-sm text-gray-900"><%= Map.get(@state, "generator_count", 0) %></span>
+                <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Generators</span>
+                <span class="text-sm text-gray-900 dark:text-gray-100"><%= Map.get(@state, "generator_count", 0) %></span>
               </div>
 
               <!-- Script Error -->
               <%= if get_in(@state, ["last_script_error"]) do %>
                 <div class="flex justify-between items-start">
-                  <span class="text-sm font-medium text-gray-700">Script Error</span>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Script Error</span>
                   <div class="flex items-center space-x-2">
-                    <span class="text-sm text-red-600 max-w-xs">
+                    <span class="text-sm text-red-600 dark:text-red-400 max-w-xs">
                       <%= get_in(@state, ["last_script_error", "description"]) %>
                     </span>
-                    <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                    <svg class="w-4 h-4 text-red-500 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clip-rule="evenodd"></path>
                     </svg>
                   </div>
@@ -507,16 +521,16 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
               <!-- Statistics -->
               <%= for {key, values} <- Map.get(@state, "stats", %{}) do %>
                 <div class="flex justify-between items-center">
-                  <span class="text-sm font-medium text-gray-700"><%= format_stat_name(key) %></span>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200"><%= format_stat_name(key) %></span>
                   <div class="flex items-center space-x-3">
-                    <span class="text-sm text-gray-900"><%= format_stat_value(key, values) %></span>
+                    <span class="text-sm text-gray-900 dark:text-gray-100"><%= format_stat_value(key, values) %></span>
                     <%= if key == "cpu_percent" do %>
-                      <svg class={["w-4 h-4", if(is_red_cpu?(values), do: "text-red-500", else: "text-green-500")]} fill="currentColor" viewBox="0 0 20 20">
+                      <svg class={["w-4 h-4", if(is_red_cpu?(values), do: "text-red-500 dark:text-red-400", else: "text-green-500 dark:text-green-400")]} fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
                       </svg>
                     <% end %>
                     <%= if is_error_stat?(key) do %>
-                      <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                      <svg class="w-4 h-4 text-red-500 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
                         <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clip-rule="evenodd"></path>
                       </svg>
                     <% end %>
@@ -528,21 +542,21 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
         </div>
 
         <!-- Reports Panel -->
-        <div class="bg-white shadow rounded-lg">
-          <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-medium text-gray-900">Reports</h3>
+        <div class="bg-white shadow rounded-lg dark:bg-gray-800 dark:shadow-lg">
+          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Reports</h3>
           </div>
           <div class="p-6">
             <%= if Map.get(@state, "reports") != [] do %>
               <div class="space-y-3">
                 <%= for report <- Map.get(@state, "reports", []) do %>
-                  <div class="border border-gray-200 rounded-lg p-4">
+                  <div class="border border-gray-200 rounded-lg p-4 dark:border-gray-700">
                     <div class="flex justify-between items-start">
                       <div class="flex-1">
                         <div class="flex items-center space-x-2">
-                          <span class="text-sm font-medium text-gray-900"><%= Map.get(report, "id") %></span>
+                          <span class="text-sm font-medium text-gray-900 dark:text-gray-100"><%= Map.get(report, "id") %></span>
                           <button
-                            class="text-gray-400 hover:text-gray-600"
+                            class="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
                             onclick={"navigator.clipboard.writeText('#{Map.get(report, "id")}')"}
                             title="Copy to clipboard"
                           >
@@ -554,15 +568,15 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                         </div>
                         <div class="mt-2 flex items-center space-x-4">
                           <div class="flex items-center space-x-1">
-                            <span class="text-xs text-gray-500">Errors</span>
-                            <svg class={["w-4 h-4", if(has_errors?(report), do: "text-red-500", else: "text-green-500")]} fill="currentColor" viewBox="0 0 20 20">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">Errors</span>
+                            <svg class={["w-4 h-4", if(has_errors?(report), do: "text-red-500 dark:text-red-400", else: "text-green-500 dark:text-green-400")]} fill="currentColor" viewBox="0 0 20 20">
                               <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clip-rule="evenodd"></path>
                             </svg>
                           </div>
                           <div class="flex items-center space-x-1">
-                            <span class="text-xs text-gray-500">Max CPU</span>
-                            <span class="text-xs text-gray-900"><%= get_in(report, ["maximums", "cpu_percent"]) || 0 %>%</span>
-                            <svg class={["w-4 h-4", if(is_red_cpu_max?(report), do: "text-red-500", else: "text-green-500")]} fill="currentColor" viewBox="0 0 20 20">
+                            <span class="text-xs text-gray-500 dark:text-gray-400">Max CPU</span>
+                            <span class="text-xs text-gray-900 dark:text-gray-100"><%= get_in(report, ["maximums", "cpu_percent"]) || 0 %>%</span>
+                            <svg class={["w-4 h-4", if(is_red_cpu_max?(report), do: "text-red-500 dark:text-red-400", else: "text-green-500 dark:text-green-400")]} fill="currentColor" viewBox="0 0 20 20">
                               <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
                             </svg>
                           </div>
@@ -573,7 +587,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                           <a
                             href={get_in(report, ["result", "csv_url"])}
                             target="_blank"
-                            class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100"
+                            class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900 dark:hover:bg-blue-800"
                           >
                             CSV
                           </a>
@@ -582,13 +596,13 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                           <a
                             href={get_in(report, ["result", "cw_url"])}
                             target="_blank"
-                            class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100"
+                            class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-900 dark:hover:bg-blue-800"
                           >
                             CloudWatch
                           </a>
                         <% end %>
                         <button
-                          class="px-2 py-1 text-xs font-medium text-red-600 bg-red-50 rounded hover:bg-red-100"
+                          class="px-2 py-1 text-xs font-medium text-red-600 bg-red-50 rounded hover:bg-red-100 dark:text-red-400 dark:bg-red-900 dark:hover:bg-red-800"
                           phx-click="remove_report"
                           phx-value-id={Map.get(report, "id")}
                         >
@@ -600,7 +614,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                 <% end %>
               </div>
             <% else %>
-              <p class="text-sm text-gray-500">No reports available</p>
+              <p class="text-sm text-gray-500 dark:text-gray-400">No reports available</p>
             <% end %>
           </div>
         </div>
@@ -619,7 +633,8 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       {"http2", "HTTP 2"},
       {"http2s", "HTTP 2 over TLS"},
       {"tcp", "TCP"},
-      {"udp", "UDP"}
+      {"udp", "UDP"},
+      {"script", "Custom Script"}
     ]
   end
 
@@ -635,13 +650,13 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
         if ramp_step_size > 0 do
           ramp_steps = div(desired_size, ramp_step_size)
-          ramp_steps * ramp_step_size
+          max(ramp_steps * ramp_step_size, desired_size)
         else
-          0
+          1
         end
 
       _ ->
-        0
+        1
     end
   end
 
@@ -750,7 +765,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   end
 
   defp is_error_stat?(key) do
-    key_str = Atom.to_string(key)
+    key_str = to_string(key)
 
     String.ends_with?(key_str, "_error_count") or String.contains?(key_str, "error")
   end

@@ -201,7 +201,7 @@ defmodule Stressgrid.Generator.GunDevice do
         _,
         %GunDevice{stream_ref: nil} = device
       ) do
-    Logger.warn("Must be upgraded to send websocket frame")
+    Logger.warning("Must be upgraded to send websocket frame")
 
     {:reply, {:error, :must_ws_upgrade}, device}
   end

@@ -3,35 +3,35 @@ defmodule Stressgrid.Generator.DeviceContext do
 
   alias Stressgrid.Generator.{Device}
 
-  use Bitwise
+  import Bitwise
 
   defmacro start_timing(key) do
     quote do
-      Device.start_timing(var!(device_pid), unquote(key))
+      Device.start_timing(Process.get(:device_pid), unquote(key))
     end
   end
 
   defmacro stop_timing(key) do
     quote do
-      Device.stop_timing(var!(device_pid), unquote(key))
+      Device.stop_timing(Process.get(:device_pid), unquote(key))
     end
   end
 
-  defmacro stop_start_timing(key, key) do
+  defmacro stop_start_timing(key) do
     quote do
-      Device.stop_start_timing(var!(device_pid), unquote(key), unquote(key))
+      Device.stop_start_timing(Process.get(:device_pid), unquote(key), unquote(key))
     end
   end
 
   defmacro stop_start_timing(stop_key, start_key) do
     quote do
-      Device.stop_start_timing(var!(device_pid), unquote(stop_key), unquote(start_key))
+      Device.stop_start_timing(Process.get(:device_pid), unquote(stop_key), unquote(start_key))
     end
   end
 
   defmacro inc_counter(key, value \\ 1) do
     quote do
-      Device.inc_counter(var!(device_pid), unquote(key), unquote(value))
+      Device.inc_counter(Process.get(:device_pid), unquote(key), unquote(value))
     end
   end
 
@@ -52,10 +52,7 @@ defmodule Stressgrid.Generator.DeviceContext do
   end
 
   def random_bytes(size) when size > 0 do
-    {:ok, random} = File.open("/dev/urandom", [:read])
-    bytes = IO.binread(random, size)
-    :ok = File.close(random)
-    bytes
+    :crypto.strong_rand_bytes(size)
   end
 
   def payload(size) do

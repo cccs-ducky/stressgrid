@@ -36,7 +36,10 @@ defmodule Stressgrid.Generator.Application do
   end
 
   defp default_generator_id do
-    {r, 0} = System.cmd("hostname", ["-s"])
-    r |> String.trim()
+    host = :inet.gethostname() |> elem(1) |> to_string()
+
+    uniq = :rand.uniform(1_000_000_000)
+
+    "#{host}-#{uniq}"
   end
 end

@@ -38,6 +38,6 @@ RUN MIX_ENV=prod mix deps.get && \
 
 COPY --from=node-builder /app/coordinator/priv /app/coordinator/_build/prod/rel/coordinator/lib/coordinator-0.1.0/priv
 
-EXPOSE 8000 9696
+EXPOSE 4000 8000 9696
 
 CMD ["bash"]

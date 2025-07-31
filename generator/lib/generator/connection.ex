@@ -65,7 +65,7 @@ defmodule Stressgrid.Generator.Connection do
         :timeout,
         %Connection{conn_pid: conn_pid} = connection
       ) do
-    Logger.warn("Connection timeout")
+    Logger.warning("Connection timeout")
 
     :ok = :gun.close(conn_pid)
 
@@ -367,7 +367,7 @@ defmodule Stressgrid.Generator.Connection do
         end
 
       error ->
-        Logger.error("Error reading /proc/net/dev: #{inspect(error)}")
+        log_error_once(:sg_net_dev_err, "Error reading /proc/net/dev: #{inspect(error)}")
         []
     end
   end
@@ -441,7 +441,7 @@ defmodule Stressgrid.Generator.Connection do
         {:ok, stats}
 
       error ->
-        Logger.error("Error reading /proc/net/snmp: #{inspect(error)}")
+        log_error_once(:sg_net_snmp_err, "Error reading /proc/net/snmp: #{inspect(error)}")
         error
     end
   end
@@ -510,7 +510,7 @@ defmodule Stressgrid.Generator.Connection do
         end
 
       error ->
-        Logger.error("Error reading /proc/net/dev: #{inspect(error)}")
+        log_error_once(:sg_net_dev_err, "Error reading /proc/net/dev: #{inspect(error)}")
         error
     end
   end
@@ -537,5 +537,15 @@ defmodule Stressgrid.Generator.Connection do
     utilization_percent = round(utilization * 100)
 
     {:ok, utilization_percent, %{connection | wall_times: next_wall_times}}
+  end
+
+  defp log_error_once(key, msg) do
+    case :persistent_term.get(key, nil) do
+      nil ->
+        Logger.error(msg)
+        :persistent_term.put(key, true)
+      _ ->
+        :ok
+    end
   end
 end

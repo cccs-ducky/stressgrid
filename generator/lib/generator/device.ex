@@ -154,8 +154,10 @@ defmodule Stressgrid.Generator.Device do
 
     _ = Kernel.send(self(), {:init, id, task_script, task_params})
 
-    state
-    |> Map.put(:device, %Device{})
+    Map.merge(state, %{
+      id: id,
+      device: %Device{}
+    })
   end
 
   def do_collect(
@@ -236,11 +238,34 @@ defmodule Stressgrid.Generator.Device do
        |> Enum.sort()}
 
     try do
+      {:ok, task_script_ast} = Code.string_to_quoted(task_script)
+
+      task_imports_ast =
+        ([kernel_macros, base_device_macros] ++
+           device_macros ++
+           [kernel_functions, base_device_functions] ++ device_functions)
+        |> Enum.map(fn {mod, defs} ->
+          quote do
+            import unquote(mod), only: unquote(defs)
+          end
+        end)
+
+      task_fn_ast =
+        quote do
+          fn ->
+            Process.put(:device_pid, var!(device_pid))
+
+            unquote_splicing(task_imports_ast)
+            unquote(task_script_ast)
+          end
+        end
+
       {task_fn, _} =
-        "fn -> #{task_script} end"
-        |> Code.eval_string([device_pid: device_pid, params: task_params],
-          functions: [kernel_functions, base_device_functions] ++ device_functions,
-          macros: [kernel_macros, base_device_macros] ++ device_macros
+        Code.eval_quoted(
+          task_fn_ast,
+          id: id,
+          device_pid: device_pid,
+          params: task_params
         )
 
       state = %{
@@ -279,7 +304,7 @@ defmodule Stressgrid.Generator.Device do
   end
 
   def do_task_completed(%{device: %Device{task: %Task{ref: task_ref}}} = state) do
-    Logger.debug("Script exited normally")
+    Logger.debug("Script exited normally for device #{state.id}")
 
     true = Process.demonitor(task_ref, [:flush])
 
@@ -303,7 +328,7 @@ defmodule Stressgrid.Generator.Device do
         %{device: %Device{module: module, task: task} = device} = state,
         delay
       ) do
-    Logger.debug("Recycle device")
+    Logger.debug("Recycle device #{state.id}")
 
     if task != nil do
       Task.shutdown(task, :brutal_kill)
