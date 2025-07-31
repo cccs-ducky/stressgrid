@@ -128,11 +128,11 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   end
 
   defp build_run_plan(_params, assigns) do
-    with {:ok, size} <- parse_int(assigns.desired_size),
-         {:ok, port} <- parse_int(assigns.port),
-         {:ok, rampup} <- parse_int(assigns.rampup_secs),
-         {:ok, sustain} <- parse_int(assigns.sustain_secs),
-         {:ok, rampdown} <- parse_int(assigns.rampdown_secs),
+    with {:ok, size} <- parse_int(assigns.desired_size, %{ key: "desired_size" }),
+         {:ok, port} <- parse_int(assigns.port || "80", %{ key: "port" }),
+         {:ok, rampup} <- parse_int(assigns.rampup_secs, %{ key: "rampup_secs" }),
+         {:ok, sustain} <- parse_int(assigns.sustain_secs, %{ key: "sustain_secs" }),
+         {:ok, rampdown} <- parse_int(assigns.rampdown_secs, %{ key: "rampdown_secs" }),
          {:ok, params_obj} <- Jason.decode(assigns.params) do
       generator_count = Map.get(assigns.state, "generator_count", 0)
       ramp_step_size = generator_count * 10
@@ -142,7 +142,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
       plan = %{
         "name" => assigns.name,
-        "addresses" => build_addresses(assigns.host, port, assigns.protocol),
+        "addresses" => build_addresses(assigns.host || "localhost", port, assigns.protocol),
         "blocks" => [
           %{
             "script" => assigns.script,
@@ -177,11 +177,15 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     end)
   end
 
-  defp parse_int(value) when is_binary(value) do
+  defp parse_int(value, context) when is_binary(value) do
     case Integer.parse(value) do
       {int, ""} -> {:ok, int}
-      _ -> {:error, "Invalid number: #{value}"}
+      _ -> {:error, Map.merge(context, %{error: "invalid number: #{value}"}) |> inspect()}
     end
+  end
+
+  defp parse_int(value, context) do
+    {:error, Map.merge(context, %{error: "invalid number: #{value}"}) |> inspect()}
   end
 
   defp send_websocket_message(message) do
