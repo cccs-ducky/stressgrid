@@ -136,6 +136,10 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
          {:ok, params_obj} <- Jason.decode(assigns.params) do
       generator_count = Map.get(assigns.state, "generator_count", 0)
       ramp_step_size = generator_count * 10
+      ramp_step_size = cond do
+        size < ramp_step_size -> 1
+        true -> ramp_step_size
+      end
       ramp_steps = if ramp_step_size > 0, do: div(size, ramp_step_size), else: 1
       ramp_steps = max(ramp_steps, 1)
       effective_size = ramp_steps * ramp_step_size

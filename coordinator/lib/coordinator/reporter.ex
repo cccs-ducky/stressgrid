@@ -454,4 +454,12 @@ defmodule Stressgrid.Coordinator.Reporter do
       "description" => "function_clause"
     }
   end
+
+  defp script_error_to_json(%{
+    error: error
+  }) when is_binary(error) do
+    %{
+      "description" => error
+    }
+  end
 end

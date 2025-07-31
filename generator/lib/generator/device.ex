@@ -315,9 +315,15 @@ defmodule Stressgrid.Generator.Device do
         state,
         reason
       ) do
-    state
-    |> do_recycle(true)
-    |> do_inc_counter(reason |> task_reason_to_key(), 1)
+    next_state =
+      state
+      |> do_recycle(true)
+      |> do_inc_counter(reason |> task_reason_to_key(), 1)
+
+    %{
+      next_state
+      | device: %{next_state.device | script_error: %{error: reason}}
+    }
   end
 
   def do_open(%{device: %Device{module: module}} = state) do
