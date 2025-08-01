@@ -133,7 +133,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
          {:ok, rampup} <- parse_int(assigns.rampup_secs, %{ key: "rampup_secs" }),
          {:ok, sustain} <- parse_int(assigns.sustain_secs, %{ key: "sustain_secs" }),
          {:ok, rampdown} <- parse_int(assigns.rampdown_secs, %{ key: "rampdown_secs" }),
-         {:ok, params_obj} <- Jason.decode(assigns.params) do
+         {:ok, params_obj} <- parse_json(assigns.params || "{}", %{ key: "params" }) do
       generator_count = Map.get(assigns.state, "generator_count", 0)
       ramp_step_size = generator_count * 10
       ramp_step_size = cond do
@@ -190,6 +190,13 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
   defp parse_int(value, context) do
     {:error, Map.merge(context, %{error: "invalid number: #{value}"}) |> inspect()}
+  end
+
+  defp parse_json(value, context) do
+    Jason.decode(value)
+  rescue
+    error ->
+      {:error, Map.merge(context, %{error: "invalid JSON: #{value}"}) |> inspect()}
   end
 
   defp send_websocket_message(message) do
