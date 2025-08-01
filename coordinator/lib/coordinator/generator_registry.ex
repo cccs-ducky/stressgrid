@@ -19,6 +19,10 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
     GenServer.cast(__MODULE__, {:register, id, self()})
   end
 
+  def count do
+    GenServer.call(__MODULE__, :count)
+  end
+
   def start_cohort(id, blocks, addresses) do
     GenServer.cast(__MODULE__, {:start_cohort, id, blocks, addresses})
   end
@@ -34,6 +38,10 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
   def init(_args) do
     :ok = Management.notify_all(%{"generator_count" => 0})
     {:ok, %GeneratorRegistry{}}
+  end
+
+  def handle_call(:count, _from, %GeneratorRegistry{registrations: registrations} = registry) do
+    {:reply, map_size(registrations), registry}
   end
 
   def handle_cast(

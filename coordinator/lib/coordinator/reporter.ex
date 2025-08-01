@@ -462,4 +462,12 @@ defmodule Stressgrid.Coordinator.Reporter do
       "description" => error
     }
   end
+
+  defp script_error_to_json(%{
+    error: error
+  }) when is_map(error) or is_atom(error) or is_tuple(error) do
+    %{
+      "description" => inspect(error)
+    }
+  end
 end

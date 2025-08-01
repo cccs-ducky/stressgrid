@@ -196,7 +196,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     Jason.decode(value)
   rescue
     error ->
-      {:error, Map.merge(context, %{error: "invalid JSON: #{value}"}) |> inspect()}
+      {:error, Map.merge(context, %{error: "invalid JSON: #{value}", orig_error: error}) |> inspect()}
   end
 
   defp send_websocket_message(message) do
