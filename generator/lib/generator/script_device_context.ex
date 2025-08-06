@@ -17,7 +17,7 @@ defmodule Stressgrid.Generator.ScriptDeviceContext do
           end
 
         {:error, error} ->
-          Process.exit(self(), "script error: #{inspect(error)}")
+          Process.exit(self(), inspect(error))
 
           {:error, error}
       end

@@ -5,8 +5,7 @@ defmodule Stressgrid.Coordinator.MixProject do
     [
       app: :coordinator,
       version: "0.1.0",
-      elixir: "~> 1.14",
-      elixirc_paths: elixirc_paths(Mix.env()),
+      elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps()
@@ -15,13 +14,13 @@ defmodule Stressgrid.Coordinator.MixProject do
 
   def application do
     [
-      extra_applications: [:logger, :runtime_tools],
+      extra_applications: [:logger, :runtime_tools] ++ extra_applications(Mix.env()),
       mod: {Stressgrid.Coordinator.Application, []}
     ]
   end
 
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
+  defp extra_applications(:dev), do: [:observer, :wx]
+  defp extra_applications(_), do: []
 
   defp deps do
     [
@@ -43,7 +42,7 @@ defmodule Stressgrid.Coordinator.MixProject do
       {:telemetry_metrics, "~> 1.0"},
       {:telemetry_poller, "~> 1.0"},
       {:cowboy, "~> 2.6"},
-      {:jason, "~> 1.2"},
+      {:jason, "~> 1.4"},
       # contains build fix for otp-26
       {:hdr_histogram,
        git: "https://github.com/HdrHistogram/hdr_histogram_erl.git",

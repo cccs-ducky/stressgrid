@@ -12,7 +12,7 @@ defmodule Stressgrid.Coordinator.Scheduler do
     Management
   }
 
-  @cooldown_ms 60_000
+  @cooldown_ms 10_000
   @notify_interval_ms 1_000
 
   defmodule Run do

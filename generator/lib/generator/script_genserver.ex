@@ -22,7 +22,20 @@ defmodule Stressgrid.Generator.ScriptGenServer do
         Process.put(:device_id, device_id)
         Process.put(:device_pid, device_pid)
 
-        do_init(%{device_id: device_id, device_pid: device_pid})
+        {:ok, state} = do_init(%{device_id: device_id, device_pid: device_pid})
+
+        case do_init(%{device_id: device_id, device_pid: device_pid}) do
+          {:ok, state} ->
+            {:ok, state, {:continue, :run}}
+
+          result ->
+            result
+        end
+      end
+
+      @impl true
+      def handle_continue(:run, state) do
+        run(state)
       end
     end
   end

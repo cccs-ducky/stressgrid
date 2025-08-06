@@ -52,7 +52,7 @@ defmodule Stressgrid.Generator.ScriptDevice do
         _,
         %ScriptDevice{} = device
       ) do
-    result = GenServer.start(Module.concat([Scripts, script]), device_id: device_id, device_pid: device_pid)
+    result = GenServer.start_link(Module.concat([Scripts, script]), device_id: device_id, device_pid: device_pid)
 
     {:reply, result, device}
   rescue
