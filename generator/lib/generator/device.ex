@@ -198,20 +198,6 @@ defmodule Stressgrid.Generator.Device do
 
     %Macro.Env{functions: functions, macros: macros} = __ENV__
 
-    kernel_functions =
-      functions
-      |> Enum.find(fn
-        {Kernel, _} -> true
-        _ -> false
-      end)
-
-    kernel_macros =
-      macros
-      |> Enum.find(fn
-        {Kernel, _} -> true
-        _ -> false
-      end)
-
     device_pid = self()
 
     base_device_functions =
@@ -238,34 +224,16 @@ defmodule Stressgrid.Generator.Device do
        |> Enum.sort()}
 
     try do
-      {:ok, task_script_ast} = Code.string_to_quoted(task_script)
-
-      task_imports_ast =
-        ([kernel_macros, base_device_macros] ++
-           device_macros ++
-           [kernel_functions, base_device_functions] ++ device_functions)
-        |> Enum.map(fn {mod, defs} ->
-          quote do
-            import unquote(mod), only: unquote(defs)
-          end
-        end)
-
-      task_fn_ast =
-        quote do
-          fn ->
-            Process.put(:device_pid, var!(device_pid))
-
-            unquote_splicing(task_imports_ast)
-            unquote(task_script_ast)
-          end
-        end
-
       {task_fn, _} =
-        Code.eval_quoted(
-          task_fn_ast,
-          id: id,
-          device_pid: device_pid,
-          params: task_params
+        "fn -> #{task_script} end"
+        |> Code.eval_string(
+          [id: id, device_pid: device_pid, params: task_params],
+          %Macro.Env{
+            __ENV__
+            | module: nil,
+              functions: functions ++ [base_device_functions] ++ device_functions,
+              macros: macros ++ [base_device_macros] ++ device_macros
+          }
         )
 
       state = %{
