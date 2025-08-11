@@ -61,7 +61,7 @@ Hooks.SettingsStorage = {
 Hooks.PlanModal = {
   mounted() {
     this._escHandler = (e) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !e.shiftKey) {
         this.pushEvent("hide_plan_modal", {});
       }
     };
@@ -93,7 +93,7 @@ Hooks.PlanModal = {
 Hooks.CurrentRun = {
   mounted() {
     this._enterHandler = (e) => {
-      if (e.key === "Enter") {
+      if (e.key === "Enter" && !e.shiftKey) {
         const showPlanModalButton = this.el.querySelector('button[phx-click="show_plan_modal"]');
         const abortRunButton = this.el.querySelector('button[phx-click="abort_run"]');
 
