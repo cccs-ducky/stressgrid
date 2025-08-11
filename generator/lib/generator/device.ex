@@ -256,12 +256,17 @@ defmodule Stressgrid.Generator.Device do
     task =
       %Task{pid: task_pid} =
       Task.async(fn ->
+        # suppresses warnings about module conflicts if the task script defines any
+        Code.compiler_options(ignore_module_conflict: true)
+
         try do
           task_fn.()
         catch
           :exit, :device_terminated ->
             :ok
         end
+
+        Code.compiler_options(ignore_module_conflict: false)
 
         :ok
       end)
