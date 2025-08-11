@@ -4,7 +4,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   alias Stressgrid.Coordinator.{Management, Scheduler, Reporter}
 
   @default_script """
-  run_script("MessagePublish")
+  run_script("HttpRequestDemo")
   """
 
   @default_json """
@@ -290,7 +290,8 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">JSON Configuration</label>
                     <textarea
                       name="json"
-                      class="w-full h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                      class="w-full min-h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                      style="field-sizing: content"
                       phx-change="update_form"
                       phx-value-field="json"
                     ><%= @json %></textarea>
@@ -426,7 +427,8 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Script</label>
                         <textarea
                           name="script"
-                          class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          class="w-full min-h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          style="field-sizing: content"
                           phx-change="update_form"
                           phx-value-field="script"
                         ><%= @script %></textarea>
@@ -436,7 +438,8 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Parameters</label>
                         <textarea
                           name="params"
-                          class="w-full h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          class="w-full min-h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                          style="field-sizing: content"
                           phx-change="update_form"
                           phx-value-field="params"
                         ><%= @params %></textarea>
