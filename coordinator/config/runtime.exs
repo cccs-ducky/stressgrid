@@ -20,6 +20,25 @@ if System.get_env("PHX_SERVER") do
   config :coordinator, Stressgrid.CoordinatorWeb.Endpoint, server: true
 end
 
+config :coordinator, :telemetry,
+  statsd_prefix: System.get_env("STATSD_PREFIX") || "stressgrid",
+  statsd_host: System.get_env("STATSD_HOST") || "localhost",
+  # 1432 - default udp datagram size for statsd datadog native clients
+  # https://github.com/DataDog/datadog-go/blob/3255e6186e83fad1e447573c9fa03dd13c023394/statsd/statsd.go#L35-L41
+  mtu: String.to_integer(System.get_env("COORDINATOR_TELEMETRY_MTU", "1432")),
+  buffer_flush_ms:
+    String.to_integer(System.get_env("COORDINATOR_TELEMETRY_BUFFER_FLUSH_MS", "1000")),
+  pool_size:
+    String.to_integer(
+      System.get_env("COORDINATOR_TELEMETRY_POOL_SIZE", "#{System.schedulers_online()}")
+    )
+
+config :coordinator,
+  generators_port: String.to_integer(System.get_env("GENERATORS_PORT", "9696")),
+  management_port: String.to_integer(System.get_env("MANAGEMENT_PORT", "8000")),
+  report_interval_seconds: String.to_integer(System.get_env("REPORT_INTERVAL_SECONDS", "60")),
+  report_writers: System.get_env("REPORT_WRITERS", "csv,cloudwatch,statsd") |> String.split(",") |> Enum.map(&String.trim/1)
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

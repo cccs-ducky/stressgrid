@@ -1,6 +1,7 @@
 import Config
 
 config :coordinator,
+  app_env: config_env(),
   namespace: Stressgrid.Coordinator,
   generators: [timestamp_type: :utc_datetime]
 

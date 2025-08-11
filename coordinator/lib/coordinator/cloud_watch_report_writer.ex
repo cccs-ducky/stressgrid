@@ -11,7 +11,7 @@ defmodule Stressgrid.Coordinator.CloudWatchReportWriter do
   defstruct region: nil
 
   def init(_) do
-    %CloudWatchReportWriter{region: detect_ec2_region()}
+    %CloudWatchReportWriter{region: detect_ec2_region(Application.get_env(:coordinator, :app_env))}
   end
 
   def start(writer) do
@@ -168,7 +168,7 @@ defmodule Stressgrid.Coordinator.CloudWatchReportWriter do
     end
   end
 
-  defp detect_ec2_region do
+  defp detect_ec2_region(:prod) do
     case Map.get(System.get_env(), "AWS_REGION") do
       nil ->
         with {:ok, %HTTPoison.Response{body: body}} <-
@@ -183,5 +183,9 @@ defmodule Stressgrid.Coordinator.CloudWatchReportWriter do
       region ->
         region
     end
+  end
+
+  defp detect_ec2_region(_env) do
+    "eu-west-1"
   end
 end

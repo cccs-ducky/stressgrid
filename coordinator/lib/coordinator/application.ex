@@ -11,34 +11,49 @@ defmodule Stressgrid.Coordinator.Application do
     Scheduler,
     CsvReportWriter,
     CloudWatchReportWriter,
+    StatsdReportWriter,
     Management,
     ManagementConnection,
     ManagementReportWriter
   }
 
   @management_report_writer_interval_ms 1_000
-  @default_report_interval_seconds 60
-  @default_generators_port 9696
-  @default_management_port 8000
 
   @impl true
   def start(_type, _args) do
-    generators_port = get_env_integer("GENERATORS_PORT", @default_generators_port)
-    management_port = get_env_integer("MANAGEMENT_PORT", @default_management_port)
+    generators_port = Application.get_env(:coordinator, :generators_port)
+    management_port = Application.get_env(:coordinator, :management_port)
 
-    report_interval_ms =
-      get_env_integer("REPORT_INTERVAL_SECONDS", @default_report_interval_seconds) * 1000
+    report_interval_ms = Application.get_env(:coordinator, :report_interval_seconds) * 1000
+    report_writers = Application.get_env(:coordinator, :report_writers, [])
 
-    writer_configs = [
-      {CsvReportWriter, [], report_interval_ms},
-      {CloudWatchReportWriter, [], report_interval_ms},
-      {ManagementReportWriter, [], @management_report_writer_interval_ms}
-    ]
+    all_writer_configs = %{
+      "csv" => {CsvReportWriter, [], report_interval_ms},
+      "cloudwatch" => {CloudWatchReportWriter, [], report_interval_ms},
+      "statsd" => {StatsdReportWriter, [], report_interval_ms}
+    }
+
+    writer_configs =
+      (report_writers
+       |> Enum.map(&Map.get(all_writer_configs, &1))
+       |> Enum.reject(&is_nil/1)) ++
+        [{ManagementReportWriter, [], @management_report_writer_interval_ms}]
 
     children = [
       Management.registry_spec(),
       Management,
       GeneratorRegistry,
+      {Statsd,
+       [
+         prefix: Application.get_env(:coordinator, :telemetry)[:statsd_prefix],
+         host: Application.get_env(:coordinator, :telemetry)[:statsd_host],
+         metrics: [],
+         formatter: :datadog,
+         mtu: Application.get_env(:coordinator, :telemetry)[:mtu] || 1432,
+         pool_size:
+           Application.get_env(:coordinator, :telemetry)[:pool_size] || System.schedulers_online(),
+         buffer_flush_ms: Application.get_env(:coordinator, :telemetry)[:buffer_flush_ms] || 1000
+       ]},
       {Reporter, writer_configs: writer_configs},
       Scheduler,
 
@@ -63,6 +78,7 @@ defmodule Stressgrid.Coordinator.Application do
   @impl true
   def config_change(changed, _new, removed) do
     Stressgrid.CoordinatorWeb.Endpoint.config_change(changed, removed)
+
     :ok
   end
 
@@ -92,15 +108,5 @@ defmodule Stressgrid.Coordinator.Application do
           {:priv_dir, :coordinator, "management", [{:mimetypes, :cow_mimetypes, :all}]}}
        ]}
     ])
-  end
-
-  defp get_env_integer(name, default) do
-    case Map.get(System.get_env(), name) do
-      nil ->
-        default
-
-      value ->
-        String.to_integer(value)
-    end
   end
 end
