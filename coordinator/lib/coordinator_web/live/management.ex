@@ -288,13 +288,16 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                 <%= if @advanced do %>
                   <div class="mb-4">
                     <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">JSON Configuration</label>
-                    <textarea
-                      name="json"
-                      class="w-full min-h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
-                      style="field-sizing: content"
-                      phx-change="update_form"
-                      phx-value-field="json"
-                    ><%= @json %></textarea>
+                    <div id="json-editor-container" phx-hook="CodeEditor" phx-update="ignore" data-lang="json" data-field="json">
+                      <textarea
+                        id="json-editor"
+                        name="json"
+                        class="w-full min-h-96 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                        style="field-sizing: content"
+                        phx-change="update_form"
+                        phx-value-field="json"
+                      ><%= @json %></textarea>
+                    </div>
                   </div>
                 <% else %>
                   <div class="space-y-4">
@@ -422,27 +425,33 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                     </div>
 
                     <!-- Script and Parameters -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-4">
                       <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Script</label>
-                        <textarea
-                          name="script"
-                          class="w-full min-h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
-                          style="field-sizing: content"
-                          phx-change="update_form"
-                          phx-value-field="script"
-                        ><%= @script %></textarea>
+                        <div id="script-editor-container" phx-hook="CodeEditor" phx-update="ignore" data-lang="elixir" data-field="script">
+                          <textarea
+                            id="script-editor"
+                            name="script"
+                            class="w-full min-h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                            style="field-sizing: content"
+                            phx-change="update_form"
+                            phx-value-field="script"
+                          ><%= @script %></textarea>
+                        </div>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Elixir</p>
                       </div>
                       <div>
                         <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 mb-2">Parameters</label>
-                        <textarea
-                          name="params"
-                          class="w-full min-h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
-                          style="field-sizing: content"
-                          phx-change="update_form"
-                          phx-value-field="params"
-                        ><%= @params %></textarea>
+                        <div id="params-editor-container" phx-hook="CodeEditor" phx-update="ignore" data-lang="json" data-field="params">
+                          <textarea
+                            id="params-editor"
+                            name="params"
+                            class="w-full min-h-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm dark:bg-gray-900 dark:border-gray-700 dark:text-gray-100"
+                            style="field-sizing: content"
+                            phx-change="update_form"
+                            phx-value-field="params"
+                          ><%= @params %></textarea>
+                        </div>
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">JSON</p>
                       </div>
                     </div>

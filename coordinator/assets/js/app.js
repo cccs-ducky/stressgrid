@@ -26,6 +26,12 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Sparklines, SparklinesLine, SparklinesSpots } from "react-sparklines"
 
+import { EditorView, basicSetup } from "codemirror"
+import { EditorState } from "@codemirror/state"
+import { json } from "@codemirror/lang-json"
+import { elixir } from "codemirror-lang-elixir"
+import { oneDark } from "@codemirror/theme-one-dark"
+
 const Hooks = {}
 
 Hooks.SettingsStorage = {
@@ -153,6 +159,175 @@ Hooks.Sparkline = {
   }
 }
 
+Hooks.CodeEditor = {
+  mounted() {
+    this.initializeEditor()
+
+    // Listen for theme changes
+    this.themeObserver = new MutationObserver(() => {
+      const isDarkNow = document.documentElement.classList.contains('dark')
+      if (isDarkNow !== this.isDark) {
+        this.recreateEditor()
+      }
+    })
+
+    this.themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    })
+
+    // Listen for external updates from LiveView
+    this.handleEvent("update_editor", ({ field, value }) => {
+      if (field === this.field && this.view) {
+        const currentDoc = this.view.state.doc.toString()
+        if (currentDoc !== value) {
+          this.view.dispatch({
+            changes: { from: 0, to: currentDoc.length, insert: value }
+          })
+        }
+      }
+    })
+  },
+
+  initializeEditor() {
+    const container = this.el
+    const textarea = container.querySelector('textarea')
+    const lang = container.dataset.lang
+
+    this.field = container.dataset.field
+    this.isDark = document.documentElement.classList.contains('dark')
+
+    // Determine language extension
+    let languageExtension
+    if (lang === 'json') {
+      languageExtension = json()
+    } else if (lang === 'elixir') {
+      languageExtension = elixir()
+    }
+
+    // Create extensions array
+    const extensions = [basicSetup]
+    if (languageExtension) {
+      extensions.push(languageExtension)
+    }
+    if (this.isDark) {
+      extensions.push(oneDark)
+    }
+
+    // Create editor state
+    const startState = EditorState.create({
+      doc: textarea.value,
+      extensions: extensions
+    })
+
+    // Create editor view
+    this.view = new EditorView({
+      state: startState,
+      parent: container,
+      dispatch: (tr) => {
+        this.view.update([tr])
+        if (tr.docChanged) {
+          const newValue = this.view.state.doc.toString()
+          textarea.value = newValue
+          // Trigger the phx-change event manually
+          textarea.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+      }
+    })
+
+    // Hide original textarea
+    textarea.style.display = 'none'
+
+    // Style the editor
+    this.styleEditor()
+  },
+
+  styleEditor() {
+    if (!this.view) return
+
+    this.view.dom.style.border = '1px solid'
+    this.view.dom.style.borderRadius = '0.375rem'
+    this.view.dom.style.fontSize = '0.875rem'
+    this.view.dom.style.fontFamily = 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace'
+
+    // Use smaller min-height for params field
+    if (this.field === 'params') {
+      this.view.dom.style.minHeight = '2rem'
+    } else {
+      this.view.dom.style.minHeight = '8rem'
+    }
+
+    if (this.isDark) {
+      this.view.dom.style.borderColor = 'rgb(55 65 81)'
+    } else {
+      this.view.dom.style.borderColor = 'rgb(209 213 219)'
+    }
+  },
+
+  recreateEditor() {
+    if (this.view) {
+      const currentDoc = this.view.state.doc.toString()
+      const container = this.el
+      const textarea = container.querySelector('textarea')
+      const lang = container.dataset.lang
+      this.isDark = document.documentElement.classList.contains('dark')
+
+      // Destroy current view
+      this.view.destroy()
+
+      // Determine language extension
+      let languageExtension
+
+      if (lang === 'json') {
+        languageExtension = json()
+      } else if (lang === 'elixir') {
+        languageExtension = elixir()
+      }
+
+      // Create extensions array
+      const extensions = [basicSetup]
+      if (languageExtension) {
+        extensions.push(languageExtension)
+      }
+      if (this.isDark) {
+        extensions.push(oneDark)
+      }
+
+      // Create new editor state
+      const startState = EditorState.create({
+        doc: currentDoc,
+        extensions: extensions
+      })
+
+      // Create new editor view
+      this.view = new EditorView({
+        state: startState,
+        parent: container,
+        dispatch: (tr) => {
+          this.view.update([tr])
+          if (tr.docChanged) {
+            const newValue = this.view.state.doc.toString()
+            textarea.value = newValue
+            textarea.dispatchEvent(new Event('input', { bubbles: true }))
+          }
+        }
+      })
+
+      // Style the new editor
+      this.styleEditor()
+    }d
+  },
+
+  destroyed() {
+    if (this.view) {
+      this.view.destroy()
+    }
+    if (this.themeObserver) {
+      this.themeObserver.disconnect()
+    }
+  }
+}
+
 const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute("content")
 const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
@@ -165,7 +340,6 @@ topbar.config({ barColors: { 0: "#29d" }, shadowColor: "rgba(0, 0, 0, .3)" })
 
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
-
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()

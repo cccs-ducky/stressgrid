@@ -26,3 +26,6 @@ coordinator-*.tar
 
 /priv/static/assets
 /priv/static/management
+
+# Environment variables
+.env
