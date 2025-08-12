@@ -61,12 +61,13 @@ defmodule Stressgrid.Generator.Device do
         {:reply, :ok, state |> Device.do_inc_counter(key, value)}
       end
 
-      def handle_info({:init, id, task_script, task_params}, state) do
+      def handle_info({:init, id, address, task_script, task_params}, state) do
         {:noreply,
          state
          |> Device.do_init(
            __MODULE__,
            id,
+           address,
            task_script,
            task_params,
            unquote(device_functions),
@@ -149,10 +150,11 @@ defmodule Stressgrid.Generator.Device do
 
   def init(state, args) do
     id = args |> Keyword.fetch!(:id)
+    address = args |> Keyword.fetch!(:address)
     task_script = args |> Keyword.fetch!(:script)
     task_params = args |> Keyword.fetch!(:params)
 
-    _ = Kernel.send(self(), {:init, id, task_script, task_params})
+    _ = Kernel.send(self(), {:init, id, address, task_script, task_params})
 
     Map.merge(state, %{
       id: id,
@@ -189,6 +191,7 @@ defmodule Stressgrid.Generator.Device do
         %{device: device} = state,
         module,
         id,
+        address,
         task_script,
         task_params,
         device_functions,
@@ -197,6 +200,8 @@ defmodule Stressgrid.Generator.Device do
     Logger.debug("Init device #{id}")
 
     %Macro.Env{functions: functions, macros: macros} = __ENV__
+
+    {protocol, _, _, _} = address
 
     device_pid = self()
 
@@ -224,8 +229,18 @@ defmodule Stressgrid.Generator.Device do
        |> Enum.sort()}
 
     try do
+      processed_script =
+        case protocol do
+          :script ->
+            # replace all defmodule occurrences with defmodulex to avoid module redefinition conflicts when initializing devices
+            task_script |> String.replace(~r/\bdefmodule\b/, "defmodulex")
+
+          _ ->
+            task_script
+        end
+
       {task_fn, _} =
-        "fn -> #{task_script} end"
+        "fn -> #{processed_script} end"
         |> Code.eval_string(
           [id: id, device_pid: device_pid, params: task_params],
           %Macro.Env{

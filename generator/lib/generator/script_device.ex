@@ -14,7 +14,8 @@ defmodule Stressgrid.Generator.ScriptDevice do
     device_macros: [
       {ScriptDeviceContext,
        [
-         run_script: 1
+         run_script: 1,
+         defmodulex: 2
        ]
        |> Enum.sort()}
     ]
