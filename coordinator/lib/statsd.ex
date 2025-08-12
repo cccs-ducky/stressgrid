@@ -317,7 +317,7 @@ defmodule Statsd do
   require Record
 
   alias Telemetry.Metrics
-  alias Statsd.{Options, UDP, CounterOk, CounterError}
+  alias Statsd.{Formatter, Options, UDP, CounterOk, CounterError}
 
   @type prefix :: String.t() | atom() | nil
   @type host :: String.t() | :inet.ip_address()
@@ -414,6 +414,12 @@ defmodule Statsd do
   end
 
   @doc false
+  @spec get_state(pid(), list(atom() | binary())) :: map()
+  def get_state(reporter, keys) do
+    GenServer.call(reporter, {:get_state, keys})
+  end
+
+  @doc false
   @spec get_pool_id(pid()) :: :ets.tid()
   def get_pool_id(reporter) do
     GenServer.call(reporter, :get_pool_id)
@@ -438,7 +444,7 @@ defmodule Statsd do
     CounterOk.init()
     CounterError.init()
 
-#    metrics = Map.fetch!(options, :metrics)
+    #    metrics = Map.fetch!(options, :metrics)
 
     udp_config =
       case options.host do
@@ -470,24 +476,25 @@ defmodule Statsd do
     :ets.insert(pool_id, udps)
     :ets.insert(pool_id, udp_workers)
 
-#    handler_ids =
-#      EventHandler.attach(
-#        metrics,
-#        self(),
-#        pool_id,
-#        options.mtu,
-#        options.prefix,
-#        options.formatter,
-#        options.global_tags
-#      )
+    #    handler_ids =
+    #      EventHandler.attach(
+    #        metrics,
+    #        self(),
+    #        pool_id,
+    #        options.mtu,
+    #        options.prefix,
+    #        options.formatter,
+    #        options.global_tags
+    #      )
 
     schedule_metrics_report(options.diagnostic_metrics_report_interval)
 
     {:ok,
      %{
        udp_config: udp_config,
-#       handler_ids: handler_ids,
+       #       handler_ids: handler_ids,
        pool_id: pool_id,
+       prefix: options.prefix,
        host: options.host,
        port: options.port,
        host_resolution_interval: options.host_resolution_interval,
@@ -540,13 +547,8 @@ defmodule Statsd do
   end
 
   @impl true
-  def handle_call(:get_pool_id, _from, %{pool_id: pool_id} = state) do
-    {:reply, pool_id, state}
-  end
-
-  @impl true
-  def handle_call(:get_formatter, _from, %{formatter: formatter} = state) do
-    {:reply, formatter, state}
+  def handle_call({:get_state, keys}, _from, state) do
+    {:reply, Map.take(state, keys), state}
   end
 
   defp message_queue_len(target) when is_pid(target) do
@@ -610,7 +612,7 @@ defmodule Statsd do
           :telemetry.execute(
             [:telemetry_metrics_statsd, :udp_metrics],
             %{
-              message_queue_len: message_queue_len(udp_worker),
+              message_queue_len: message_queue_len(udp_worker)
             },
             %{}
           )
@@ -630,12 +632,12 @@ defmodule Statsd do
       {:noreply, state}
   end
 
-#  @impl true
-#  def terminate(_reason, state) do
-#    EventHandler.detach(state.handler_ids)
-#
-#    :ok
-#  end
+  #  @impl true
+  #  def terminate(_reason, state) do
+  #    EventHandler.detach(state.handler_ids)
+  #
+  #    :ok
+  #  end
 
   defp update_host(state, new_address) do
     %{pool_id: pool_id, udp_config: %{port: port} = udp_config} = state
@@ -752,19 +754,22 @@ defmodule Statsd do
   defp publish_metric(metric_type, name, value, tags) do
     case Process.whereis(__MODULE__) do
       nil ->
-        Logger.error("Statsd reporter not found. Make sure to start it with a name: #{__MODULE__}")
+        Logger.error(
+          "Statsd reporter not found. Make sure to start it with a name: #{__MODULE__}"
+        )
+
         :error
 
       pid ->
-        pool_id = get_pool_id(pid)
-        formatter = get_formatter(pid)
+        %{pool_id: pool_id, formatter: formatter, prefix: prefix} =
+          get_state(pid, [:pool_id, :formatter, :prefix])
 
         metric_name = normalize_metric_name(name)
         metric = create_metric(metric_type, metric_name)
 
         case get_udp_worker(pool_id) do
           {:ok, udp_worker} ->
-            formatted_metric = formatter.format(metric, value, tags)
+            formatted_metric = Formatter.format(formatter, metric, prefix, value, tags)
             datagram = IO.iodata_to_binary(formatted_metric)
             Statsd.UDPWorker.publish_datagrams(udp_worker, [datagram])
             :ok

@@ -2,7 +2,7 @@ import Config
 
 # load environment variables from .env file if it exists
 if File.exists?(".env") do
-  Dotenv.load()
+  Dotenv.load!()
 end
 
 # config/runtime.exs is executed for all environments, including
