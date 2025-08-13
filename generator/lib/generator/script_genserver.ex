@@ -18,13 +18,20 @@ defmodule Stressgrid.Generator.ScriptGenServer do
       def init(args) do
         device_id = Keyword.fetch!(args, :device_id)
         device_pid = Keyword.fetch!(args, :device_pid)
+        generator_id = Keyword.fetch!(args, :generator_id)
+        generator_numeric_id = Keyword.fetch!(args, :generator_numeric_id)
 
         Process.put(:device_id, device_id)
         Process.put(:device_pid, device_pid)
+        Process.put(:generator_id, generator_id)
+        Process.put(:generator_numeric_id, generator_numeric_id)
 
-        {:ok, state} = do_init(%{device_id: device_id, device_pid: device_pid})
-
-        case do_init(%{device_id: device_id, device_pid: device_pid}) do
+        case do_init(%{
+               device_id: device_id,
+               device_pid: device_pid,
+               generator_id: generator_id,
+               generator_numeric_id: generator_numeric_id
+             }) do
           {:ok, state} ->
             {:ok, state, {:continue, :run}}
 

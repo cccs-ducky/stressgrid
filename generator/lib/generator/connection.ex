@@ -206,7 +206,14 @@ defmodule Stressgrid.Generator.Connection do
 
   defp receive_term(
          %Connection{cohorts: cohorts, address_base: address_base} = connection,
-         {:start_cohort, %{id: id, blocks: blocks, addresses: addresses}}
+         {:start_cohort,
+          %{
+            id: id,
+            generator_id: generator_id,
+            generator_numeric_id: generator_numeric_id,
+            blocks: blocks,
+            addresses: addresses
+          }}
        )
        when is_binary(id) and is_list(blocks) do
     {:ok, cohort_pid} = Cohort.Supervisor.start_child(id)
@@ -228,6 +235,8 @@ defmodule Stressgrid.Generator.Connection do
               Device.Supervisor.start_child(
                 cohort_pid,
                 "#{id}-#{i}",
+                generator_id,
+                generator_numeric_id,
                 address,
                 script,
                 params
@@ -256,6 +265,16 @@ defmodule Stressgrid.Generator.Connection do
         :ok = Cohort.Supervisor.terminate_child(pid)
         %{connection | cohorts: cohorts |> Map.delete(id)}
     end
+  end
+
+  defp receive_term(
+         connection,
+         {:update_generators_count, %{count: count}}
+       )
+       when is_integer(count) do
+    :persistent_term.put(:sg_generator_count, count)
+
+    connection
   end
 
   defp send_terms(%Connection{conn_pid: conn_pid} = connection, terms) when is_list(terms) do
@@ -544,6 +563,7 @@ defmodule Stressgrid.Generator.Connection do
       nil ->
         Logger.error(msg)
         :persistent_term.put(key, true)
+
       _ ->
         :ok
     end

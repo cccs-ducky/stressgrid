@@ -35,6 +35,18 @@ defmodule Stressgrid.Generator.DeviceContext do
     end
   end
 
+  defmacro generator_numeric_id do
+    quote do
+      Process.get(:generator_numeric_id)
+    end
+  end
+
+  defmacro generators_count do
+    quote do
+      :persistent_term.get(:sg_generator_count, 1)
+    end
+  end
+
   def delay(milliseconds, random_ratio \\ 0)
       when random_ratio >= 0.0 and random_ratio <= 1.0 do
     Process.sleep(trunc(milliseconds * (1.0 + random_ratio * (:rand.uniform() * 2.0 - 1.0))))

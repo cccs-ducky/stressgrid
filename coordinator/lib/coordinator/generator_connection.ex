@@ -13,15 +13,28 @@ defmodule Stressgrid.Coordinator.GeneratorConnection do
     GeneratorRegistry
   }
 
-  def start_cohort(pid, id, blocks, addresses) do
+  def start_cohort(pid, id, generator_id, generator_numeric_id, blocks, addresses) do
     send_terms(pid, [
-      {:start_cohort, %{id: id, blocks: blocks, addresses: addresses}}
+      {:start_cohort,
+       %{
+         id: id,
+         generator_id: generator_id,
+         generator_numeric_id: generator_numeric_id,
+         blocks: blocks,
+         addresses: addresses
+       }}
     ])
   end
 
   def stop_cohort(pid, id) do
     send_terms(pid, [
       {:stop_cohort, %{id: id}}
+    ])
+  end
+
+  def update_generators_count(pid, count) do
+    send_terms(pid, [
+      {:update_generators_count, %{count: count}}
     ])
   end
 

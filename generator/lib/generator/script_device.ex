@@ -40,20 +40,42 @@ defmodule Stressgrid.Generator.ScriptDevice do
     device
   end
 
-  def run_script(device_pid, device_id, script) do
+  def run_script(device_pid, device_id, generator_id, generator_numeric_id, script) do
     if Process.alive?(device_pid) do
-      GenServer.call(device_pid, {:run_script, script, %{ device_id: device_id, device_pid: device_pid }}, :infinity)
+      GenServer.call(
+        device_pid,
+        {:run_script, script,
+         %{
+           device_id: device_id,
+           device_pid: device_pid,
+           generator_id: generator_id,
+           generator_numeric_id: generator_numeric_id
+         }},
+        :infinity
+      )
     else
       exit(:device_terminated)
     end
   end
 
   def handle_call(
-        {:run_script, script, %{ device_id: device_id, device_pid: device_pid }},
+        {:run_script, script,
+         %{
+           device_id: device_id,
+           generator_id: generator_id,
+           generator_numeric_id: generator_numeric_id,
+           device_pid: device_pid
+         }},
         _,
         %ScriptDevice{} = device
       ) do
-    result = GenServer.start_link(Module.concat([Scripts, script]), device_id: device_id, device_pid: device_pid)
+    result =
+      GenServer.start_link(Module.concat([Scripts, script]),
+        generator_id: generator_id,
+        generator_numeric_id: generator_numeric_id,
+        device_id: device_id,
+        device_pid: device_pid
+      )
 
     {:reply, result, device}
   rescue

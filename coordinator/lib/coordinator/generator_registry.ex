@@ -13,7 +13,8 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
   }
 
   defstruct registrations: %{},
-            monitors: %{}
+            monitors: %{},
+            generator_next_numeric_id: 0
 
   def register(id) do
     GenServer.cast(__MODULE__, {:register, id, self()})
@@ -31,6 +32,14 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
     GenServer.cast(__MODULE__, {:stop_cohort, id})
   end
 
+  defp notify_generators_count(registrations, count) do
+    :ok =
+      registrations
+      |> Enum.each(fn {_, {pid, _}} ->
+        :ok = GeneratorConnection.update_generators_count(pid, count)
+      end)
+  end
+
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
@@ -46,32 +55,50 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
 
   def handle_cast(
         {:register, id, pid},
-        %GeneratorRegistry{monitors: monitors, registrations: registrations} = registry
+        %GeneratorRegistry{
+          monitors: monitors,
+          registrations: registrations,
+          generator_next_numeric_id: generator_next_numeric_id
+        } = registry
       ) do
     ref = :erlang.monitor(:process, pid)
+
     Logger.info("Registered generator #{id}")
 
-    registrations = Map.put(registrations, id, pid)
+    registrations =
+      Map.put(registrations, id, {pid, generator_next_numeric_id})
 
-    :ok = Management.notify_all(%{"generator_count" => map_size(registrations)})
+    count = map_size(registrations)
+
+    :ok = Management.notify_all(%{"generator_count" => count})
+    :ok = notify_generators_count(registrations, count)
 
     {:noreply,
      %{
        registry
-       | registrations: registrations,
+       | generator_next_numeric_id: generator_next_numeric_id + 1,
+         registrations: registrations,
          monitors: monitors |> Map.put(ref, id)
      }}
   end
 
   def handle_cast(
-        {:start_cohort, id, blocks, addresses},
+        {:start_cohort, cohort_id, blocks, addresses},
         %GeneratorRegistry{registrations: registrations} = registry
       ) do
     :ok =
       registrations
       |> Enum.zip(Utils.split_blocks(blocks, map_size(registrations)))
-      |> Enum.each(fn {{_, pid}, blocks} ->
-        :ok = GeneratorConnection.start_cohort(pid, id, blocks, addresses)
+      |> Enum.each(fn {{generator_id, {pid, generator_numeric_id}}, blocks} ->
+        :ok =
+          GeneratorConnection.start_cohort(
+            pid,
+            cohort_id,
+            generator_id,
+            generator_numeric_id,
+            blocks,
+            addresses
+          )
       end)
 
     {:noreply, registry}
@@ -83,7 +110,7 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
       ) do
     :ok =
       registrations
-      |> Enum.each(fn {_, pid} ->
+      |> Enum.each(fn {_, {pid, _}} ->
         :ok = GeneratorConnection.stop_cohort(pid, id)
       end)
 
@@ -105,8 +132,10 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
         Logger.info("Unregistered generator #{id}: #{inspect(reason)}")
 
         registrations = Map.delete(registrations, id)
+        count = map_size(registrations)
 
-        :ok = Management.notify_all(%{"generator_count" => map_size(registrations)})
+        :ok = Management.notify_all(%{"generator_count" => count})
+        :ok = notify_generators_count(registrations, count)
         :ok = Reporter.clear_stats(id)
 
         {:noreply,

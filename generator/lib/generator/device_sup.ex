@@ -9,10 +9,16 @@ defmodule Stressgrid.Generator.Device.Supervisor do
     DynamicSupervisor.start_link(__MODULE__, [])
   end
 
-  def start_child(cohort_pid, id, address, script, params) do
+  def start_child(cohort_pid, id, generator_id, generator_numeric_id, address, script, params) do
     DynamicSupervisor.start_child(
       cohort_pid,
-      {address_module(address), id: id, address: address, script: script, params: params}
+      {address_module(address),
+       id: id,
+       generator_id: generator_id,
+       generator_numeric_id: generator_numeric_id,
+       address: address,
+       script: script,
+       params: params}
     )
   end
 

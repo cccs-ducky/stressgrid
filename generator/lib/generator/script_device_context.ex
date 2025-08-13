@@ -5,7 +5,14 @@ defmodule Stressgrid.Generator.ScriptDeviceContext do
 
   defmacro run_script(script) do
     quote do
-      result = ScriptDevice.run_script(var!(device_pid), var!(id), unquote(script))
+      result =
+        ScriptDevice.run_script(
+          var!(device_pid),
+          var!(id),
+          var!(generator_id),
+          var!(generator_numeric_id),
+          unquote(script)
+        )
 
       case result do
         {:ok, script_pid} ->
@@ -24,7 +31,7 @@ defmodule Stressgrid.Generator.ScriptDeviceContext do
     end
   end
 
-  # defmodulex avoids module redefinition conflicts when initializing devices, and defins module only once
+  # defmodulex avoids module redefinition conflicts when initializing devices, and defines module only once
   # also checks if the module content has changed, and redefines it only if necessary
   defmacro defmodulex(alias, do: block) do
     block_hash = :erlang.phash2(Macro.escape(block))
@@ -33,19 +40,22 @@ defmodule Stressgrid.Generator.ScriptDeviceContext do
       module_alias = unquote(alias)
 
       # check if module already exists and if block content has changed
-      should_define = case Code.ensure_loaded?(module_alias) do
-        false ->
-          true
-        true ->
-          # try to get stored hash from module attribute
-          stored_hash = try do
-            module_alias.__hash__()
-          rescue
-            _ -> nil
-          end
+      should_define =
+        case Code.ensure_loaded?(module_alias) do
+          false ->
+            true
 
-          stored_hash != unquote(block_hash)
-      end
+          true ->
+            # try to get stored hash from module attribute
+            stored_hash =
+              try do
+                module_alias.__hash__()
+              rescue
+                _ -> nil
+              end
+
+            stored_hash != unquote(block_hash)
+        end
 
       if should_define do
         # purge existing module if it exists

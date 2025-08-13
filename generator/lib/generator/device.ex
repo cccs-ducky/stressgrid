@@ -61,12 +61,17 @@ defmodule Stressgrid.Generator.Device do
         {:reply, :ok, state |> Device.do_inc_counter(key, value)}
       end
 
-      def handle_info({:init, id, address, task_script, task_params}, state) do
+      def handle_info(
+            {:init, id, generator_id, generator_numeric_id, address, task_script, task_params},
+            state
+          ) do
         {:noreply,
          state
          |> Device.do_init(
            __MODULE__,
            id,
+           generator_id,
+           generator_numeric_id,
            address,
            task_script,
            task_params,
@@ -150,11 +155,17 @@ defmodule Stressgrid.Generator.Device do
 
   def init(state, args) do
     id = args |> Keyword.fetch!(:id)
+    generator_id = args |> Keyword.fetch!(:generator_id)
+    generator_numeric_id = args |> Keyword.fetch!(:generator_numeric_id)
     address = args |> Keyword.fetch!(:address)
     task_script = args |> Keyword.fetch!(:script)
     task_params = args |> Keyword.fetch!(:params)
 
-    _ = Kernel.send(self(), {:init, id, address, task_script, task_params})
+    _ =
+      Kernel.send(
+        self(),
+        {:init, id, generator_id, generator_numeric_id, address, task_script, task_params}
+      )
 
     Map.merge(state, %{
       id: id,
@@ -191,6 +202,8 @@ defmodule Stressgrid.Generator.Device do
         %{device: device} = state,
         module,
         id,
+        generator_id,
+        generator_numeric_id,
         address,
         task_script,
         task_params,
@@ -224,7 +237,9 @@ defmodule Stressgrid.Generator.Device do
          stop_start_timing: 1,
          stop_start_timing: 2,
          inc_counter: 1,
-         inc_counter: 2
+         inc_counter: 2,
+         generator_numeric_id: 0,
+         generators_count: 0
        ]
        |> Enum.sort()}
 
@@ -242,7 +257,13 @@ defmodule Stressgrid.Generator.Device do
       {task_fn, _} =
         "fn -> #{processed_script} end"
         |> Code.eval_string(
-          [id: id, device_pid: device_pid, params: task_params],
+          [
+            id: id,
+            generator_id: generator_id,
+            generator_numeric_id: generator_numeric_id,
+            device_pid: device_pid,
+            params: task_params
+          ],
           %Macro.Env{
             __ENV__
             | module: nil,
