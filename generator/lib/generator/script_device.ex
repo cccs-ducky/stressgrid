@@ -15,7 +15,8 @@ defmodule Stressgrid.Generator.ScriptDevice do
       {ScriptDeviceContext,
        [
          run_script: 1,
-         defmodulex: 2
+         defmodulex: 2,
+         defmodule_noop: 2
        ]
        |> Enum.sort()}
     ]
@@ -69,17 +70,28 @@ defmodule Stressgrid.Generator.ScriptDevice do
         _,
         %ScriptDevice{} = device
       ) do
-    result =
-      GenServer.start_link(Module.concat([Scripts, script]),
-        generator_id: generator_id,
-        generator_numeric_id: generator_numeric_id,
-        device_id: device_id,
-        device_pid: device_pid
-      )
+    try do
+      script_module = Module.concat([Scripts, script])
 
-    {:reply, result, device}
-  rescue
-    error ->
-      {:reply, {:error, error}, device}
+      if Code.ensure_loaded?(script_module) do
+        result =
+          GenServer.start_link(script_module,
+            generator_id: generator_id,
+            generator_numeric_id: generator_numeric_id,
+            device_id: device_id,
+            device_pid: device_pid
+          )
+
+        {:reply, result, device}
+      else
+        {:reply, {:error, "script module not found #{script_module}"}, device}
+      end
+    rescue
+      error ->
+        {:reply, {:error, error}, device}
+    catch
+      :exit, reason ->
+        {:reply, {:error, reason}, device}
+    end
   end
 end

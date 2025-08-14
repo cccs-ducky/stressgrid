@@ -13,6 +13,17 @@ defmodule Stressgrid.Coordinator.GeneratorConnection do
     GeneratorRegistry
   }
 
+  def prepare(pid, generator_id, generator_numeric_id, blocks) do
+    send_terms(pid, [
+      {:prepare,
+       %{
+         generator_id: generator_id,
+         generator_numeric_id: generator_numeric_id,
+         blocks: blocks
+       }}
+    ])
+  end
+
   def start_cohort(pid, id, generator_id, generator_numeric_id, blocks, addresses) do
     send_terms(pid, [
       {:start_cohort,

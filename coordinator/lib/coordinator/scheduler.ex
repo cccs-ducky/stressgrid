@@ -116,7 +116,7 @@ defmodule Stressgrid.Coordinator.Scheduler do
 
     ts = 0
     timer_refs = [schedule_state_change(ts, :rampup, ramp_steps * rampup_step_ms)]
-    timer_refs = [schedule_op(ts, :start) | timer_refs]
+    timer_refs = [schedule_op(ts, {:start, blocks}) | timer_refs]
 
     {ts, timer_refs} =
       1..ramp_steps
@@ -204,10 +204,12 @@ defmodule Stressgrid.Coordinator.Scheduler do
     :ok
   end
 
-  defp do_run_op(%Run{id: id, plan_name: plan_name} = run, :start) do
+  defp do_run_op(%Run{id: id, plan_name: plan_name} = run, {:start, blocks}) do
     Logger.info("Started run #{id}")
 
     :ok = Reporter.start_run(id, plan_name)
+
+    GeneratorRegistry.prepare(blocks)
 
     run
   end

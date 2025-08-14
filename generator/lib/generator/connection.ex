@@ -21,7 +21,8 @@ defmodule Stressgrid.Generator.Connection do
             cohorts: %{},
             address_base: 0,
             previous_network_stats: nil,
-            network_device_name: nil
+            network_device_name: nil,
+            prepare_script_error: nil
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -32,7 +33,7 @@ defmodule Stressgrid.Generator.Connection do
 
     network_device_name =
       read_network_device_names()
-      |> find_network_device_name(System.get_env() |> Map.get("NETWORK_DEVICE"))
+      |> find_network_device_name(System.get_env("NETWORK_DEVICE"))
 
     Logger.info("Collecting network stats from #{inspect(network_device_name)}")
 
@@ -145,7 +146,7 @@ defmodule Stressgrid.Generator.Connection do
     {:noreply, connection}
   end
 
-  def handle_info(:report, %Connection{} = connection) do
+  def handle_info(:report, %Connection{prepare_script_error: prepare_script_error} = connection) do
     Process.send_after(self(), :report, @report_interval)
 
     {first_script_error, active_device_number, aggregate_hists, aggregate_scalars} =
@@ -163,8 +164,10 @@ defmodule Stressgrid.Generator.Connection do
               Map.update(scalars, key, value, fn c -> c + value end)
             end)
 
-          {if(first_script_error !== nil, do: first_script_error, else: script_error),
-           active_device_number + if(is_active, do: 1, else: 0), aggregate_hists,
+          {if(first_script_error !== nil || prepare_script_error !== nil,
+             do: first_script_error || prepare_script_error,
+             else: script_error
+           ), active_device_number + if(is_active, do: 1, else: 0), aggregate_hists,
            aggregate_scalars}
         end)
       end)
@@ -202,6 +205,36 @@ defmodule Stressgrid.Generator.Connection do
       |> push_telemetry(telemetry)
 
     {:noreply, connection}
+  end
+
+  defp receive_term(
+         connection,
+         {:prepare,
+          %{
+            blocks: blocks
+          }}
+       )
+       when is_list(blocks) do
+    results =
+      blocks
+      |> Enum.map(fn %{script: script} when is_binary(script) ->
+        Device.prepare_script(script)
+      end)
+
+    first_error =
+      results
+      |> Enum.find(fn
+        {:error, _} -> true
+        _ -> false
+      end)
+
+    if first_error do
+      {:error, error} = first_error
+
+      %{connection | prepare_script_error: %{error: error}}
+    else
+      %{connection | prepare_script_error: nil}
+    end
   end
 
   defp receive_term(

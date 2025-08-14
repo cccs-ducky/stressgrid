@@ -34,7 +34,7 @@ defmodule Stressgrid.Generator.ScriptDeviceContext do
   # defmodulex avoids module redefinition conflicts when initializing devices, and defines module only once
   # also checks if the module content has changed, and redefines it only if necessary
   defmacro defmodulex(alias, do: block) do
-    block_hash = :erlang.phash2(Macro.escape(block))
+    block_hash = :erlang.phash2(block)
 
     quote do
       module_alias = unquote(alias)
@@ -71,5 +71,9 @@ defmodule Stressgrid.Generator.ScriptDeviceContext do
         end
       end
     end
+  end
+
+  defmacro defmodule_noop(_alias, do: _block) do
+   # do nothing, modules defined only in prepare_script using defmodulex macros
   end
 end

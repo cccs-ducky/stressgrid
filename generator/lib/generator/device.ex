@@ -1,7 +1,7 @@
 defmodule Stressgrid.Generator.Device do
   @moduledoc false
 
-  alias Stressgrid.Generator.{Device, DeviceContext, Histogram}
+  alias Stressgrid.Generator.{Device, DeviceContext, Histogram, ScriptDevice}
 
   require Logger
 
@@ -19,6 +19,14 @@ defmodule Stressgrid.Generator.Device do
 
     quote do
       alias Stressgrid.Generator.{Device}
+
+      def device_functions do
+        unquote(device_functions)
+      end
+
+      def device_macros do
+        unquote(device_macros)
+      end
 
       def handle_call(
             {:collect, to_hists},
@@ -247,8 +255,10 @@ defmodule Stressgrid.Generator.Device do
       processed_script =
         case protocol do
           :script ->
-            # replace all defmodule occurrences with defmodulex to avoid module redefinition conflicts when initializing devices
-            task_script |> String.replace(~r/\bdefmodule\b/, "defmodulex")
+            # replace all defmodule occurrences with defmodule_noop to avoid re-defining modules
+            # this is needed to avoid module redefinition errors when the script is reloaded ad-hoc
+            # modules are extracted and defined only once in prepare_script/1
+            task_script |> String.replace(~r/\bdefmodule\b/, "defmodule_noop")
 
           _ ->
             task_script
@@ -288,21 +298,132 @@ defmodule Stressgrid.Generator.Device do
     end
   end
 
+  # pre-evals script modules before running cohorts, it's done only once to ensure no concurrent module definitions done
+  def prepare_script(task_script) do
+    %Macro.Env{functions: functions, macros: macros} = __ENV__
+
+    base_device_functions =
+      {DeviceContext,
+       [
+         delay: 1,
+         delay: 2,
+         payload: 1,
+         random_bits: 1,
+         random_bytes: 1
+       ]
+       |> Enum.sort()}
+
+    base_device_macros =
+      {DeviceContext,
+       [
+         start_timing: 1,
+         stop_timing: 1,
+         stop_start_timing: 1,
+         stop_start_timing: 2,
+         inc_counter: 1,
+         inc_counter: 2,
+         generator_numeric_id: 0,
+         generators_count: 0
+       ]
+       |> Enum.sort()}
+
+    if String.contains?(task_script, "defmodule") do
+      prepared_script =
+        extract_modules(task_script) |> String.replace(~r/\bdefmodule\b/, "defmodulex")
+
+      {task_fn, _} =
+        "fn -> #{prepared_script} end"
+        |> Code.eval_string(
+          [],
+          %Macro.Env{
+            __ENV__
+            | module: nil,
+              functions:
+                functions ++
+                  [base_device_functions] ++ ScriptDevice.device_functions(),
+              macros:
+                macros ++
+                  [base_device_macros] ++ ScriptDevice.device_macros()
+          }
+        )
+
+      Task.await(
+        Task.async(fn ->
+          try do
+            task_fn.()
+
+            :ok
+          rescue
+            error ->
+              Logger.error("Error in script module preparation: #{inspect(error)}")
+
+              {:error, "Error in script module preparation: #{inspect(error)}"}
+          catch
+            :exit, reason ->
+              Logger.error("Script module preparation exited with reason: #{inspect(reason)}")
+
+              {:error, "Script module preparation exited with reason: #{inspect(reason)}"}
+          end
+        end)
+      )
+    end
+  end
+
+  def extract_modules(task_script) do
+    case Code.string_to_quoted(task_script) do
+      {:ok, ast} ->
+        modules = extract_defmodule_nodes(ast)
+
+        modules_code =
+          modules
+          |> Enum.map(&Macro.to_string/1)
+          |> Enum.join("\n\n")
+
+        modules_code
+
+      {:error, error} ->
+        {:error, error}
+    end
+  end
+
+  defp extract_defmodule_nodes(ast) when is_list(ast) do
+    ast
+    |> Enum.reduce([], fn node, acc ->
+      case extract_defmodule_nodes(node) do
+        [] -> acc
+        modules -> modules ++ acc
+      end
+    end)
+    |> Enum.reverse()
+  end
+
+  defp extract_defmodule_nodes({:defmodule, _, _} = node) do
+    [node]
+  end
+
+  defp extract_defmodule_nodes({_, _, children}) when is_list(children) do
+    children
+    |> Enum.reduce([], fn child, acc ->
+      case extract_defmodule_nodes(child) do
+        [] -> acc
+        modules -> modules ++ acc
+      end
+    end)
+    |> Enum.reverse()
+  end
+
+  defp extract_defmodule_nodes(_), do: []
+
   def start_task(%{device: %Device{task: nil, task_fn: task_fn} = device} = state) do
     task =
       %Task{pid: task_pid} =
       Task.async(fn ->
-        # suppresses warnings about module conflicts if the task script defines any
-        Code.compiler_options(ignore_module_conflict: true)
-
         try do
           task_fn.()
         catch
           :exit, :device_terminated ->
             :ok
         end
-
-        Code.compiler_options(ignore_module_conflict: false)
 
         :ok
       end)

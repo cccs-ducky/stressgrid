@@ -32,6 +32,10 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
     GenServer.cast(__MODULE__, {:stop_cohort, id})
   end
 
+  def prepare(blocks) do
+    GenServer.call(__MODULE__, {:prepare, blocks})
+  end
+
   defp notify_generators_count(registrations, count) do
     :ok =
       registrations
@@ -51,6 +55,25 @@ defmodule Stressgrid.Coordinator.GeneratorRegistry do
 
   def handle_call(:count, _from, %GeneratorRegistry{registrations: registrations} = registry) do
     {:reply, map_size(registrations), registry}
+  end
+
+  def handle_call(
+        {:prepare, blocks},
+        _from,
+        %GeneratorRegistry{registrations: registrations} = registry
+      ) do
+    registrations
+    |> Enum.each(fn {generator_id, {pid, generator_numeric_id}} ->
+      :ok =
+        GeneratorConnection.prepare(
+          pid,
+          generator_id,
+          generator_numeric_id,
+          blocks
+        )
+    end)
+
+    {:reply, :ok, registry}
   end
 
   def handle_cast(
