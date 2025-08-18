@@ -295,7 +295,11 @@ defmodule Stressgrid.Generator.Connection do
         connection
 
       pid ->
-        :ok = Cohort.Supervisor.terminate_child(pid)
+        case Cohort.Supervisor.terminate_child(pid) do
+          :ok -> :ok
+          {:error, :not_found} -> :ok # child already terminated
+        end
+
         %{connection | cohorts: cohorts |> Map.delete(id)}
     end
   end
@@ -329,7 +333,10 @@ defmodule Stressgrid.Generator.Connection do
     :ok =
       cohorts
       |> Enum.each(fn {_, pid} ->
-        :ok = Cohort.Supervisor.terminate_child(pid)
+        case Cohort.Supervisor.terminate_child(pid) do
+          :ok -> :ok
+          {:error, :not_found} -> :ok # child already terminated
+        end
       end)
 
     %{connection | cohorts: %{}}
