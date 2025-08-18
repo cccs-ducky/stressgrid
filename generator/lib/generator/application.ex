@@ -21,7 +21,7 @@ defmodule Stressgrid.Generator.Application do
     children = [
       Cohort.Supervisor,
       {Connection, id: id, host: host, port: port}
-    ]
+    ] ++ Application.get_env(:stressgrid, :supervisor_children, [])
 
     opts = [
       strategy: :one_for_one,

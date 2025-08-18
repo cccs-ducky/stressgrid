@@ -350,7 +350,11 @@ defmodule Stressgrid.Generator.Device do
       Task.await(
         Task.async(fn ->
           try do
+            Code.put_compiler_option(:ignore_module_conflict, true)
+
             task_fn.()
+
+            Code.put_compiler_option(:ignore_module_conflict, false)
 
             :ok
           rescue
