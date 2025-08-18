@@ -5,6 +5,9 @@ if File.exists?(".env") do
   Dotenv.load!()
 end
 
+config :logger,
+  level: System.get_env("LOGGER_LEVEL", "info") |> String.to_atom()
+
 # config/runtime.exs is executed for all environments, including
 # during releases. It is executed after compilation and before the
 # system starts, so it is typically used to load production configuration
@@ -42,7 +45,10 @@ config :coordinator,
   generators_port: String.to_integer(System.get_env("GENERATORS_PORT", "9696")),
   management_port: String.to_integer(System.get_env("MANAGEMENT_PORT", "8000")),
   report_interval_seconds: String.to_integer(System.get_env("REPORT_INTERVAL_SECONDS", "60")),
-  report_writers: System.get_env("REPORT_WRITERS", "csv,cloudwatch,statsd") |> String.split(",") |> Enum.map(&String.trim/1)
+  report_writers:
+    System.get_env("REPORT_WRITERS", "csv,cloudwatch,statsd")
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
 
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
