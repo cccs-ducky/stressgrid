@@ -31,7 +31,12 @@ defmodule Stressgrid.Generator.MixProject do
       end
 
     Application.put_env(:stressgrid, :custom_deps, Keyword.get(bindings, :deps, []))
-    Application.put_env(:stressgrid, :supervisor_children, Keyword.get(bindings, :supervisor_children, []))
+
+    Application.put_env(
+      :stressgrid,
+      :supervisor_children,
+      Keyword.get(bindings, :supervisor_children, [])
+    )
   end
 
   defp elixirc_paths(), do: ["lib", scripts_path()]
@@ -55,7 +60,8 @@ defmodule Stressgrid.Generator.MixProject do
        tag: "39991d346382e0add74fed2e8ec1cd5666061541"},
       {:jason, "~> 1.4"},
       {:bertex, "~> 1.3"},
-      {:dialyxir, "~> 1.4", runtime: false}
+      {:dialyxir, "~> 1.4", runtime: false},
+      {:dotenv, "~> 3.1"}
     ] ++ Application.get_env(:stressgrid, :custom_deps, [])
   end
 end

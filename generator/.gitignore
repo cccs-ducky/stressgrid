@@ -22,3 +22,6 @@ erl_crash.dump
 /scripts/
 !/scripts/config
 !/scripts/http_request_demo.ex
+
+# Environment variables
+.env
