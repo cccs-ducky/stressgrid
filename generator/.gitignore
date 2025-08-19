@@ -20,7 +20,8 @@ erl_crash.dump
 *.ez
 
 /scripts/
-!/scripts/config
+!/scripts/config/
+!/scripts/phoenix_client/
 !/scripts/http_request_demo.ex
 
 # Environment variables
