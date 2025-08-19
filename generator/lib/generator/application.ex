@@ -9,10 +9,10 @@ defmodule Stressgrid.Generator.Application do
 
   def start(_type, _args) do
     id =
-      System.get_env("GENERATOR_ID", default_generator_id())
+      Application.get_env(:generator, :generator_id) || default_generator_id()
 
     {host, port} =
-      case System.get_env("COORDINATOR_URL", @default_coordinator_url)
+      case (Application.get_env(:generator, :coordinator_url) || @default_coordinator_url)
            |> URI.parse() do
         %URI{scheme: "ws", host: host, port: port} ->
           {host, port}

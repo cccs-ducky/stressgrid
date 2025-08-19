@@ -8,6 +8,12 @@ end
 config :logger,
   level: System.get_env("LOGGER_LEVEL", "info") |> String.to_atom()
 
+config :generator,
+  generator_id: System.get_env("GENERATOR_ID"),
+  coordinator_url: System.get_env("COORDINATOR_URL"),
+  network_device: System.get_env("NETWORK_DEVICE"),
+  scripts_path: System.get_env("SCRIPTS_PATH")
+
 scripts_path = System.get_env("SCRIPTS_PATH") || "../scripts/config"
 
 custom_scripts_config = Path.expand(Path.join(scripts_path, "runtime.exs"), __DIR__)

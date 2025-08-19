@@ -33,7 +33,7 @@ defmodule Stressgrid.Generator.Connection do
 
     network_device_name =
       read_network_device_names()
-      |> find_network_device_name(System.get_env("NETWORK_DEVICE"))
+      |> find_network_device_name(Application.get_env(:generator, :network_device))
 
     Logger.info("Collecting network stats from #{inspect(network_device_name)}")
 
