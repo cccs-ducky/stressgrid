@@ -11,8 +11,7 @@ config :logger,
 config :generator,
   generator_id: System.get_env("GENERATOR_ID"),
   coordinator_url: System.get_env("COORDINATOR_URL"),
-  network_device: System.get_env("NETWORK_DEVICE"),
-  scripts_path: System.get_env("SCRIPTS_PATH")
+  network_device: System.get_env("NETWORK_DEVICE")
 
 scripts_path = System.get_env("SCRIPTS_PATH") || "../scripts/config"
 
