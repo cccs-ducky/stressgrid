@@ -18,10 +18,12 @@ defmodule Stressgrid.Generator.Application do
           {host, port}
       end
 
-    children = [
-      Cohort.Supervisor,
-      {Connection, id: id, host: host, port: port}
-    ] ++ Application.get_env(:stressgrid, :supervisor_children, [])
+    children =
+      [
+        Cohort.Supervisor,
+        {Task.Supervisor, name: Stressgrid.Generator.TaskSupervisor},
+        {Connection, id: id, host: host, port: port}
+      ] ++ Application.get_env(:stressgrid, :supervisor_children, [])
 
     opts = [
       strategy: :one_for_one,

@@ -1,18 +1,31 @@
 defmodule Stressgrid.Generator.ScriptDeviceContext do
   @moduledoc false
 
-  alias Stressgrid.Generator.{ScriptDevice}
+  alias Stressgrid.Generator.{Scripts, ScriptDevice}
 
   defmacro run_script(script) do
     quote do
-      result =
-        ScriptDevice.run_script(
-          var!(device_pid),
-          var!(id),
-          var!(generator_id),
-          var!(generator_numeric_id),
-          unquote(script)
-        )
+      result = try do
+        script_module = Module.concat([Scripts, unquote(script)])
+
+        if Code.ensure_loaded?(script_module) do
+          result =
+            GenServer.start_link(script_module,
+              generator_id: var!(generator_id),
+              generator_numeric_id: var!(generator_numeric_id),
+              device_id: var!(id),
+              device_pid: var!(device_pid)
+            )
+        else
+          {:error, "script module not found #{script_module}"}
+        end
+      rescue
+        error ->
+          {:error, error}
+      catch
+        :exit, reason ->
+          {:error, reason}
+      end
 
       case result do
         {:ok, script_pid} ->
@@ -20,13 +33,21 @@ defmodule Stressgrid.Generator.ScriptDeviceContext do
 
           # explicitly wait for the script (genserver) to finish
           receive do
-            {:DOWN, ^script_ref, :process, ^script_pid, _reason} -> :ok
+            {:DOWN, ^script_ref, :process, ^script_pid, reason} ->
+              case reason do
+                :normal ->
+                  :ok
+
+                :shutdown ->
+                  :ok
+
+                error ->
+                  raise(error)
+              end
           end
 
         {:error, error} ->
-          Process.exit(self(), inspect(error))
-
-          {:error, error}
+          raise(error)
       end
     end
   end

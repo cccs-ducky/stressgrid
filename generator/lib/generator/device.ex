@@ -116,6 +116,27 @@ defmodule Stressgrid.Generator.Device do
           ) do
         {:noreply, state |> Device.do_task_down(reason)}
       end
+
+      def handle_info({:EXIT, _pid, reason}, state) do
+        state = case state.device.task do
+          nil -> state
+          task ->
+            Task.shutdown(task, :brutal_kill)
+            %{state | device: %{state.device | task: nil}}
+        end
+
+        {:noreply, state}
+      end
+
+      @impl true
+      def terminate(reason, state) do
+        case state.device.task do
+          nil -> :ok
+          task -> Task.shutdown(task, :brutal_kill)
+        end
+
+        :ok
+      end
     end
   end
 
@@ -162,6 +183,8 @@ defmodule Stressgrid.Generator.Device do
   end
 
   def init(state, args) do
+    Process.flag(:trap_exit, true)
+
     id = args |> Keyword.fetch!(:id)
     generator_id = args |> Keyword.fetch!(:generator_id)
     generator_numeric_id = args |> Keyword.fetch!(:generator_numeric_id)
@@ -421,7 +444,7 @@ defmodule Stressgrid.Generator.Device do
   def start_task(%{device: %Device{task: nil, task_fn: task_fn} = device} = state) do
     task =
       %Task{pid: task_pid} =
-      Task.async(fn ->
+      Task.Supervisor.async_nolink(Stressgrid.Generator.TaskSupervisor, fn ->
         try do
           task_fn.()
         catch
@@ -431,8 +454,6 @@ defmodule Stressgrid.Generator.Device do
 
         :ok
       end)
-
-    true = Process.unlink(task_pid)
 
     %{state | device: %{device | task: task}}
   end
