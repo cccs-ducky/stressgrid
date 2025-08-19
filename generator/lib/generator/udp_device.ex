@@ -72,6 +72,7 @@ defmodule Stressgrid.Generator.UdpDevice do
     {:reply, :ok, device}
   end
 
+  @impl true
   def handle_call(
         :receive,
         _,
@@ -80,6 +81,7 @@ defmodule Stressgrid.Generator.UdpDevice do
     {:reply, {:ok, datagram}, %{device | received_datagrams: received_datagrams}}
   end
 
+  @impl true
   def handle_call(
         :receive,
         receive_from,
@@ -88,6 +90,7 @@ defmodule Stressgrid.Generator.UdpDevice do
     {:noreply, %{device | waiting_receive_froms: waiting_receive_froms ++ [receive_from]}}
   end
 
+  @impl true
   def handle_info(
         {:udp, socket, ip, port, datagram},
         %UdpDevice{
@@ -109,6 +112,7 @@ defmodule Stressgrid.Generator.UdpDevice do
     end
   end
 
+  @impl true
   def handle_info(
         {:udp, socket, ip, port, datagram},
         %UdpDevice{socket: socket, waiting_receive_froms: [receive_from | waiting_receive_froms]} =
@@ -123,6 +127,7 @@ defmodule Stressgrid.Generator.UdpDevice do
     {:noreply, %{device | waiting_receive_froms: waiting_receive_froms}}
   end
 
+  @impl true
   def handle_info(
         _,
         device

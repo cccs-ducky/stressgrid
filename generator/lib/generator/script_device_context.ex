@@ -1,7 +1,7 @@
 defmodule Stressgrid.Generator.ScriptDeviceContext do
   @moduledoc false
 
-  alias Stressgrid.Generator.{Scripts, ScriptDevice}
+  alias Stressgrid.Generator.Scripts
 
   defmacro run_script(script) do
     quote do

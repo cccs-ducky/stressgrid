@@ -28,6 +28,7 @@ defmodule Stressgrid.Generator.Device do
         unquote(device_macros)
       end
 
+      @impl true
       def handle_call(
             {:collect, to_hists},
             _,
@@ -37,6 +38,7 @@ defmodule Stressgrid.Generator.Device do
         {:reply, r, state}
       end
 
+      @impl true
       def handle_call(
             {:start_timing, key},
             _,
@@ -45,6 +47,7 @@ defmodule Stressgrid.Generator.Device do
         {:reply, :ok, state |> Device.do_start_timing(key)}
       end
 
+      @impl true
       def handle_call(
             {:stop_timing, key},
             _,
@@ -53,6 +56,7 @@ defmodule Stressgrid.Generator.Device do
         {:reply, :ok, state |> Device.do_stop_timing(key)}
       end
 
+      @impl true
       def handle_call(
             {:stop_start_timing, stop_key, start_key},
             _,
@@ -61,6 +65,7 @@ defmodule Stressgrid.Generator.Device do
         {:reply, :ok, state |> Device.do_stop_start_timing(stop_key, start_key)}
       end
 
+      @impl true
       def handle_call(
             {:inc_counter, key, value},
             _,
@@ -69,6 +74,7 @@ defmodule Stressgrid.Generator.Device do
         {:reply, :ok, state |> Device.do_inc_counter(key, value)}
       end
 
+      @impl true
       def handle_info(
             {:init, id, generator_id, generator_numeric_id, address, task_script, task_params},
             state
@@ -88,12 +94,14 @@ defmodule Stressgrid.Generator.Device do
          )}
       end
 
+      @impl true
       def handle_info(:open, state) do
         {:noreply,
          state
          |> Device.do_open()}
       end
 
+      @impl true
       def handle_info(
             {task_ref, :ok},
             %{device: %Device{task: %Task{ref: task_ref}} = device} = state
@@ -102,6 +110,7 @@ defmodule Stressgrid.Generator.Device do
         {:noreply, state |> Device.do_task_completed()}
       end
 
+      @impl true
       def handle_info(
             {:DOWN, task_ref, :process, task_pid, reason},
             %{
@@ -117,13 +126,17 @@ defmodule Stressgrid.Generator.Device do
         {:noreply, state |> Device.do_task_down(reason)}
       end
 
+      @impl true
       def handle_info({:EXIT, _pid, reason}, state) do
-        state = case state.device.task do
-          nil -> state
-          task ->
-            Task.shutdown(task, :brutal_kill)
-            %{state | device: %{state.device | task: nil}}
-        end
+        state =
+          case state.device.task do
+            nil ->
+              state
+
+            task ->
+              Task.shutdown(task, :brutal_kill)
+              %{state | device: %{state.device | task: nil}}
+          end
 
         {:noreply, state}
       end
@@ -443,7 +456,6 @@ defmodule Stressgrid.Generator.Device do
 
   def start_task(%{device: %Device{task: nil, task_fn: task_fn} = device} = state) do
     task =
-      %Task{pid: task_pid} =
       Task.Supervisor.async_nolink(Stressgrid.Generator.TaskSupervisor, fn ->
         try do
           task_fn.()

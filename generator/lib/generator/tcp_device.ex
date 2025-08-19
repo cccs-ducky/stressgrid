@@ -53,6 +53,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     end
   end
 
+  @impl true
   def handle_call(
         {:send, _},
         _,
@@ -61,6 +62,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     {:reply, {:error, :closed}, device}
   end
 
+  @impl true
   def handle_call(
         {:send, data},
         _,
@@ -80,6 +82,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     {:reply, :ok, device}
   end
 
+  @impl true
   def handle_call(
         :receive,
         _,
@@ -88,6 +91,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     {:reply, {:error, :closed}, device}
   end
 
+  @impl true
   def handle_call(
         :receive,
         receive_from,
@@ -96,6 +100,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     {:noreply, %{device | waiting_receive_froms: waiting_receive_froms ++ [receive_from]}}
   end
 
+  @impl true
   def handle_call(
         :receive,
         _,
@@ -104,6 +109,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     {:reply, {:ok, iodata}, %{device | received_iodata: []}}
   end
 
+  @impl true
   def handle_info(
         {:tcp, socket, data},
         %TcpDevice{
@@ -125,6 +131,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     end
   end
 
+  @impl true
   def handle_info(
         {:tcp_closed, socket},
         %TcpDevice{
@@ -136,6 +143,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     {:noreply, %{device | socket: nil}}
   end
 
+  @impl true
   def handle_info(
         {:tcp_error, socket, reason},
         %TcpDevice{
@@ -148,6 +156,7 @@ defmodule Stressgrid.Generator.TcpDevice do
      |> Device.do_inc_counter(reason |> tcp_reason_to_key(), 1)}
   end
 
+  @impl true
   def handle_info(
         {:tcp, socket, data},
         %TcpDevice{socket: socket, waiting_receive_froms: [receive_from | waiting_receive_froms]} =
@@ -162,6 +171,7 @@ defmodule Stressgrid.Generator.TcpDevice do
     {:noreply, %{device | waiting_receive_froms: waiting_receive_froms}}
   end
 
+  @impl true
   def handle_info(
         _,
         device

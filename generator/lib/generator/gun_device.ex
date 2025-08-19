@@ -122,6 +122,7 @@ defmodule Stressgrid.Generator.GunDevice do
     end
   end
 
+  @impl true
   def handle_call(call, from, %GunDevice{conn_pid: nil} = device) do
     device =
       device
@@ -130,10 +131,12 @@ defmodule Stressgrid.Generator.GunDevice do
     handle_call(call, from, device)
   end
 
+  @impl true
   def handle_call({:request, _, _, _, _}, _, %GunDevice{ws_upgraded: true} = device) do
     {:reply, {:error, :ws_upgraded}, device}
   end
 
+  @impl true
   def handle_call(
         {:request, method, path, headers, body},
         request_from,
@@ -166,10 +169,12 @@ defmodule Stressgrid.Generator.GunDevice do
     end
   end
 
+  @impl true
   def handle_call({:ws_upgrade, _, _}, _, %GunDevice{ws_upgraded: true} = device) do
     {:reply, {:error, :already_ws_upgraded}, device}
   end
 
+  @impl true
   def handle_call(
         {:ws_upgrade, path, headers},
         request_from,
@@ -196,6 +201,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:noreply, device}
   end
 
+  @impl true
   def handle_call(
         {:ws_send, _},
         _,
@@ -206,6 +212,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:reply, {:error, :must_ws_upgrade}, device}
   end
 
+  @impl true
   def handle_call(
         {:ws_send, frame},
         _,
@@ -220,6 +227,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:reply, :ok, device}
   end
 
+  @impl true
   def handle_call(
         :ws_receive,
         _,
@@ -228,6 +236,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:reply, {:ok, frame}, %{device | received_ws_frames: received_ws_frames}}
   end
 
+  @impl true
   def handle_call(
         :ws_receive,
         ws_receive_from,
@@ -237,6 +246,7 @@ defmodule Stressgrid.Generator.GunDevice do
      %{device | waiting_ws_receive_froms: waiting_ws_receive_froms ++ [ws_receive_from]}}
   end
 
+  @impl true
   def handle_call(
         :ws_fetch,
         _,
@@ -245,6 +255,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:reply, {:ok, frame}, %{device | received_ws_frames: received_ws_frames}}
   end
 
+  @impl true
   def handle_call(
         :ws_fetch,
         _,
@@ -253,6 +264,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:reply, nil, device}
   end
 
+  @impl true
   def handle_info(
         {:gun_up, conn_pid, _protocol},
         %GunDevice{
@@ -267,6 +279,7 @@ defmodule Stressgrid.Generator.GunDevice do
      |> Device.do_stop_timing(:conn)}
   end
 
+  @impl true
   def handle_info(
         {:gun_down, conn_pid, _, :closed, _, _},
         %GunDevice{
@@ -284,6 +297,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:noreply, device}
   end
 
+  @impl true
   def handle_info(
         {:gun_down, conn_pid, _, reason, _, _},
         %GunDevice{
@@ -298,6 +312,7 @@ defmodule Stressgrid.Generator.GunDevice do
      |> Device.do_inc_counter(reason |> gun_reason_to_key(), 1)}
   end
 
+  @impl true
   def handle_info(
         {:gun_response, conn_pid, stream_ref, is_fin, status, headers},
         %GunDevice{
@@ -326,6 +341,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:noreply, device}
   end
 
+  @impl true
   def handle_info(
         {:gun_data, conn_pid, stream_ref, is_fin, data},
         %GunDevice{
@@ -350,6 +366,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:noreply, device}
   end
 
+  @impl true
   def handle_info(
         {:gun_error, conn_pid, stream_ref, reason},
         %GunDevice{
@@ -365,6 +382,7 @@ defmodule Stressgrid.Generator.GunDevice do
      |> Device.do_inc_counter(reason |> gun_reason_to_key(), 1)}
   end
 
+  @impl true
   def handle_info(
         {:gun_error, conn_pid, reason},
         %GunDevice{
@@ -379,6 +397,7 @@ defmodule Stressgrid.Generator.GunDevice do
      |> Device.do_inc_counter(reason |> gun_reason_to_key(), 1)}
   end
 
+  @impl true
   def handle_info(
         {:gun_upgrade, conn_pid, stream_ref, ["websocket"], response_headers},
         %GunDevice{stream_ref: stream_ref, conn_pid: conn_pid, request_from: request_from} =
@@ -402,6 +421,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:noreply, device}
   end
 
+  @impl true
   def handle_info(
         {:gun_ws, conn_pid, stream_ref, frame},
         %GunDevice{
@@ -422,6 +442,7 @@ defmodule Stressgrid.Generator.GunDevice do
     end
   end
 
+  @impl true
   def handle_info(
         {:gun_ws, conn_pid, stream_ref, frame},
         %GunDevice{
@@ -435,6 +456,7 @@ defmodule Stressgrid.Generator.GunDevice do
     {:noreply, %{device | waiting_ws_receive_froms: waiting_ws_receive_froms}}
   end
 
+  @impl true
   def handle_info(
         {:DOWN, conn_ref, :process, conn_pid, reason},
         %GunDevice{
@@ -450,6 +472,7 @@ defmodule Stressgrid.Generator.GunDevice do
      |> Device.do_inc_counter(reason |> gun_reason_to_key(), 1)}
   end
 
+  @impl true
   def handle_info(
         message,
         device

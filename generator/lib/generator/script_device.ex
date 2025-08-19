@@ -4,8 +4,7 @@ defmodule Stressgrid.Generator.ScriptDevice do
   alias Stressgrid.Generator.{
     Device,
     ScriptDevice,
-    ScriptDeviceContext,
-    Scripts
+    ScriptDeviceContext
   }
 
   use GenServer
