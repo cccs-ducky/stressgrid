@@ -1,9 +1,7 @@
 defmodule Stressgrid.Generator.ScriptGenServer do
   defmacro __using__(_opts) do
-    quote do
+    quote location: :keep do
       use GenServer
-
-      import unquote(__MODULE__)
 
       @spec start_link(any()) :: GenServer.on_start()
       def start_link(args) do
