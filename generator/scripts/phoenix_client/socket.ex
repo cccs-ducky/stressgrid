@@ -113,6 +113,7 @@ defmodule PhoenixClient.Socket do
   @impl true
   def handle_call({:push, %Message{} = message}, _from, state) do
     {push, state} = push_message(message, state)
+    :telemetry.execute([:phoenix_client, :message, :pushed], %{}, %{event: message.event, topic: message.topic, url: state.url})
     {:reply, push, state}
   end
 
@@ -128,6 +129,7 @@ defmodule PhoenixClient.Socket do
         message = Message.join(topic, params)
         {push, state} = push_message(message, state)
         channels = Map.put(channels, topic, {channel_pid, monitor_ref})
+        :telemetry.execute([:phoenix_client, :channel, :joined], %{}, %{topic: topic, url: state.url})
         {:reply, {:ok, push}, %{state | channels: channels}}
 
       {pid, _topic} ->
@@ -146,6 +148,9 @@ defmodule PhoenixClient.Socket do
         message = Message.leave(topic)
         {push, state} = push_message(message, state)
         channels = Map.drop(channels, [topic])
+
+        :telemetry.execute([:phoenix_client, :channel, :left], %{}, %{topic: topic, url: state.url})
+
         {:reply, {:ok, push}, %{state | channels: channels}}
     end
   end
@@ -157,16 +162,19 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_info({:connected, transport_pid}, %{transport_pid: transport_pid} = state) do
+    :telemetry.execute([:phoenix_client, :connection, :connected], %{}, %{url: state.url})
     {:noreply, %{state | status: :connected}}
   end
 
   def handle_info({:disconnected, reason, transport_pid}, %{transport_pid: transport_pid} = state) do
+    :telemetry.execute([:phoenix_client, :connection, :disconnected], %{}, %{reason: reason, url: state.url})
     {:noreply, close(reason, state)}
   end
 
   # New Messages from the transport_pid come in here
   @impl true
   def handle_info({:receive, message}, state) do
+    :telemetry.execute([:phoenix_client, :message, :received], %{size: byte_size(message)}, %{url: state.url})
     transport_receive(message, state)
     {:noreply, state}
   end
@@ -188,11 +196,13 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_info(:connect, %{transport: transport, transport_opts: opts} = state) do
+    :telemetry.execute([:phoenix_client, :connection, :attempt], %{}, %{url: state.url, reconnect: state.reconnect_timer != nil})
     case transport.open(state.url, opts) do
       {:ok, transport_pid} ->
         {:noreply, %{state | transport_pid: transport_pid, reconnect_timer: nil}}
 
       {:error, reason} ->
+        :telemetry.execute([:phoenix_client, :connection, :failed], %{}, %{reason: reason, url: state.url})
         {:noreply, close(reason, state)}
     end
   end
@@ -203,6 +213,7 @@ defmodule PhoenixClient.Socket do
         {:closed, reason, transport_pid},
         %{transport_pid: transport_pid} = state
       ) do
+    :telemetry.execute([:phoenix_client, :connection, :closed], %{}, %{reason: reason, url: state.url})
     {:noreply, close(reason, state)}
   end
 
@@ -222,6 +233,7 @@ defmodule PhoenixClient.Socket do
         message = Message.leave(topic)
         {_push, state} = push_message(message, state)
         channels = Map.drop(channels, [topic])
+        :telemetry.execute([:phoenix_client, :channel, :down], %{}, %{topic: topic, url: state.url})
         {:noreply, %{state | channels: channels}}
     end
   end
@@ -242,9 +254,12 @@ defmodule PhoenixClient.Socket do
   defp transport_send(message, %{
          transport_pid: pid,
          serializer: serializer,
-         json_library: json_library
+         json_library: json_library,
+         url: url
        }) do
-    send(pid, {:send, Message.encode!(serializer, message, json_library)})
+    encoded = Message.encode!(serializer, message, json_library)
+    :telemetry.execute([:phoenix_client, :message, :sent], %{size: byte_size(encoded)}, %{event: message.event, topic: message.topic, url: url})
+    send(pid, {:send, encoded})
   end
 
   defp close(reason, %{channels: channels, reconnect_timer: nil} = state) do
@@ -257,9 +272,11 @@ defmodule PhoenixClient.Socket do
     end
 
     if state.reconnect do
+      :telemetry.execute([:phoenix_client, :connection, :reconnect_scheduled], %{interval: state.reconnect_interval}, %{reason: reason, url: state.url})
       timer_ref = Process.send_after(self(), :connect, state.reconnect_interval)
       %{state | reconnect_timer: timer_ref}
     else
+      :telemetry.execute([:phoenix_client, :connection, :closed_permanently], %{}, %{reason: reason, url: state.url})
       state
     end
   end

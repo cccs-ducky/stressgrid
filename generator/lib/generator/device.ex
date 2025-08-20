@@ -67,6 +67,15 @@ defmodule Stressgrid.Generator.Device do
 
       @impl true
       def handle_call(
+            {:record_timing, key, value},
+            _,
+            state
+          ) do
+        {:reply, :ok, state |> Device.record_hist(:"#{key}_us", value)}
+      end
+
+      @impl true
+      def handle_call(
             {:inc_counter, key, value},
             _,
             state
@@ -195,6 +204,14 @@ defmodule Stressgrid.Generator.Device do
     end
   end
 
+  def record_timing(pid, key, value) do
+    if Process.alive?(pid) do
+      GenServer.call(pid, {:record_timing, key, value})
+    else
+      :ok
+    end
+  end
+
   def init(state, args) do
     Process.flag(:trap_exit, true)
 
@@ -280,6 +297,7 @@ defmodule Stressgrid.Generator.Device do
          stop_timing: 1,
          stop_start_timing: 1,
          stop_start_timing: 2,
+         record_timing: 2,
          inc_counter: 1,
          inc_counter: 2,
          generator_numeric_id: 0,
@@ -356,6 +374,7 @@ defmodule Stressgrid.Generator.Device do
          stop_timing: 1,
          stop_start_timing: 1,
          stop_start_timing: 2,
+         record_timing: 2,
          inc_counter: 1,
          inc_counter: 2,
          generator_numeric_id: 0,
@@ -569,7 +588,7 @@ defmodule Stressgrid.Generator.Device do
     |> record_hist(:"#{stop_key}_us", now_ts - last_ts)
   end
 
-  defp record_hist(%{device: %Device{hists: hists} = device} = state, key, value) do
+  def record_hist(%{device: %Device{hists: hists} = device} = state, key, value) do
     %{state | device: %{device | hists: Histogram.record(hists, key, value)}}
   end
 

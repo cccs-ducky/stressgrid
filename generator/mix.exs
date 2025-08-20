@@ -61,7 +61,8 @@ defmodule Stressgrid.Generator.MixProject do
       {:jason, "~> 1.4"},
       {:bertex, "~> 1.3"},
       {:dialyxir, "~> 1.4", runtime: false},
-      {:dotenv, "~> 3.1"}
+      {:dotenv, "~> 3.1"},
+      {:telemetry_metrics, "~> 1.1"},
     ] ++ Application.get_env(:stressgrid, :custom_deps, [])
   end
 end

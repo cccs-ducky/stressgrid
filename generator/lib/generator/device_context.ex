@@ -29,6 +29,12 @@ defmodule Stressgrid.Generator.DeviceContext do
     end
   end
 
+  defmacro record_timing(key, value) do
+    quote do
+      Device.record_timing(Process.get(:device_pid), unquote(key), unquote(value))
+    end
+  end
+
   defmacro inc_counter(key, value \\ 1) do
     quote do
       Device.inc_counter(Process.get(:device_pid), unquote(key), unquote(value))
