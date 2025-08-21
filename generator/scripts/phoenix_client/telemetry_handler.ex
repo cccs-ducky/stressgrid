@@ -50,13 +50,6 @@ defmodule PhoenixClient.TelemetryHandler do
 
   def handle_event([:phoenix_client, :connection, :connected], measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_connection_success, 1)
-
-    if Map.has_key?(measurements, :duration) do
-      TelemetryStore.record_hist(
-        :phoenix_connection_duration_us,
-        System.convert_time_unit(measurements.duration, :native, :microsecond)
-      )
-    end
   end
 
   def handle_event(
@@ -74,13 +67,6 @@ defmodule PhoenixClient.TelemetryHandler do
 
   def handle_event([:phoenix_client, :connection, :failed], measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_connection_failures, 1)
-
-    if Map.has_key?(measurements, :duration) do
-      TelemetryStore.record_hist(
-        :phoenix_connection_failure_duration_us,
-        System.convert_time_unit(measurements.duration, :native, :microsecond)
-      )
-    end
   end
 
   def handle_event(
@@ -103,24 +89,10 @@ defmodule PhoenixClient.TelemetryHandler do
 
   def handle_event([:phoenix_client, :channel, :joined], measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_channel_joins, 1)
-
-    if Map.has_key?(measurements, :duration) do
-      TelemetryStore.record_hist(
-        :phoenix_channel_join_duration_us,
-        System.convert_time_unit(measurements.duration, :native, :microsecond)
-      )
-    end
   end
 
   def handle_event([:phoenix_client, :channel, :left], measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_channel_leaves, 1)
-
-    if Map.has_key?(measurements, :duration) do
-      TelemetryStore.record_hist(
-        :phoenix_channel_leave_duration_us,
-        System.convert_time_unit(measurements.duration, :native, :microsecond)
-      )
-    end
   end
 
   def handle_event([:phoenix_client, :channel, :down], _measurements, _metadata, _config) do
@@ -129,35 +101,14 @@ defmodule PhoenixClient.TelemetryHandler do
 
   def handle_event([:phoenix_client, :message, :pushed], measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_messages_pushed, 1)
-
-    if Map.has_key?(measurements, :duration) do
-      TelemetryStore.record_hist(
-        :phoenix_message_push_duration_us,
-        System.convert_time_unit(measurements.duration, :native, :microsecond)
-      )
-    end
   end
 
   def handle_event([:phoenix_client, :message, :sent], measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_messages_sent, 1)
-
-    if Map.has_key?(measurements, :duration) do
-      TelemetryStore.record_hist(
-        :phoenix_message_send_duration_us,
-        System.convert_time_unit(measurements.duration, :native, :microsecond)
-      )
-    end
   end
 
   def handle_event([:phoenix_client, :message, :received], measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_messages_received, 1)
-
-    if Map.has_key?(measurements, :duration) do
-      TelemetryStore.record_hist(
-        :phoenix_message_receive_duration_us,
-        System.convert_time_unit(measurements.duration, :native, :microsecond)
-      )
-    end
   end
 
   # Fallback for any unhandled events
