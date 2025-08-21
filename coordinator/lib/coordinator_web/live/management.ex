@@ -550,7 +550,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
               <% end %>
 
               <!-- Statistics -->
-              <%= for {key, values} <- Map.get(@state, "stats", %{}) do %>
+              <%= for {key, values} <- Map.get(@state, "stats", %{}) |> Enum.sort_by(fn {k, _v} -> k end) do %>
                 <div class="flex justify-between items-center">
                   <div class="flex w-full">
                     <div class="flex-1 min-w-0">
