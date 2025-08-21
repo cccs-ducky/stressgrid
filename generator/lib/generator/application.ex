@@ -1,18 +1,32 @@
 defmodule Stressgrid.Generator.Application do
   @moduledoc false
 
-  alias Stressgrid.Generator.{Connection, Cohort}
+  alias Stressgrid.Generator.{Connection, Cohort, TelemetryStore}
 
   use Application
 
-  @default_coordinator_url "ws://localhost:9696"
+  require Logger
 
   def start(_type, _args) do
-    id =
-      Application.get_env(:generator, :generator_id) || default_generator_id()
+    TelemetryStore.init()
+
+    telemetry_modules = Application.get_env(:generator, :telemetry_modules, [])
+
+    Enum.each(telemetry_modules, fn module ->
+      if Code.ensure_loaded?(module) do
+        try do
+          module.attach_handlers()
+        rescue
+          error ->
+             Logger.error("Failed to attach telemetry handlers for #{inspect(module)}: #{inspect(error)}")
+        end
+      end
+    end)
+
+    id = Application.get_env(:generator, :generator_id)
 
     {host, port} =
-      case (Application.get_env(:generator, :coordinator_url) || @default_coordinator_url)
+      case Application.get_env(:generator, :coordinator_url)
            |> URI.parse() do
         %URI{scheme: "ws", host: host, port: port} ->
           {host, port}
@@ -33,13 +47,5 @@ defmodule Stressgrid.Generator.Application do
     ]
 
     Supervisor.start_link(children, opts)
-  end
-
-  defp default_generator_id do
-    host = :inet.gethostname() |> elem(1) |> to_string()
-
-    uniq = :rand.uniform(1_000_000_000)
-
-    "#{host}-#{uniq}"
   end
 end

@@ -1,5 +1,8 @@
 import Config
 
+config :generator,
+  telemetry_modules: [PhoenixClient.TelemetryHandler, Finch.TelemetryHandler]
+
 config :tesla, :adapter, {
   Tesla.Adapter.Finch,
   name: Stressgrid.Generator.Finch

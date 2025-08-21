@@ -112,8 +112,16 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_call({:push, %Message{} = message}, _from, state) do
+    start_time = System.monotonic_time()
     {push, state} = push_message(message, state)
-    :telemetry.execute([:phoenix_client, :message, :pushed], %{}, %{event: message.event, topic: message.topic, url: state.url})
+    duration = System.monotonic_time() - start_time
+
+    :telemetry.execute([:phoenix_client, :message, :pushed], %{duration: duration}, %{
+      event: message.event,
+      topic: message.topic,
+      url: state.url
+    })
+
     {:reply, push, state}
   end
 
@@ -127,9 +135,16 @@ defmodule PhoenixClient.Socket do
       nil ->
         monitor_ref = Process.monitor(channel_pid)
         message = Message.join(topic, params)
+        start_time = System.monotonic_time()
         {push, state} = push_message(message, state)
+        duration = System.monotonic_time() - start_time
         channels = Map.put(channels, topic, {channel_pid, monitor_ref})
-        :telemetry.execute([:phoenix_client, :channel, :joined], %{}, %{topic: topic, url: state.url})
+
+        :telemetry.execute([:phoenix_client, :channel, :joined], %{duration: duration}, %{
+          topic: topic,
+          url: state.url
+        })
+
         {:reply, {:ok, push}, %{state | channels: channels}}
 
       {pid, _topic} ->
@@ -144,12 +159,18 @@ defmodule PhoenixClient.Socket do
         {:reply, :error, state}
 
       {_channel_pid, monitor_ref} ->
+
         Process.demonitor(monitor_ref)
         message = Message.leave(topic)
+        start_time = System.monotonic_time()
         {push, state} = push_message(message, state)
+        duration = System.monotonic_time() - start_time
         channels = Map.drop(channels, [topic])
 
-        :telemetry.execute([:phoenix_client, :channel, :left], %{}, %{topic: topic, url: state.url})
+        :telemetry.execute([:phoenix_client, :channel, :left], %{duration: duration}, %{
+          topic: topic,
+          url: state.url
+        })
 
         {:reply, {:ok, push}, %{state | channels: channels}}
     end
@@ -162,20 +183,31 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_info({:connected, transport_pid}, %{transport_pid: transport_pid} = state) do
-    :telemetry.execute([:phoenix_client, :connection, :connected], %{}, %{url: state.url})
     {:noreply, %{state | status: :connected}}
   end
 
   def handle_info({:disconnected, reason, transport_pid}, %{transport_pid: transport_pid} = state) do
-    :telemetry.execute([:phoenix_client, :connection, :disconnected], %{}, %{reason: reason, url: state.url})
+    :telemetry.execute([:phoenix_client, :connection, :disconnected], %{}, %{
+      reason: reason,
+      url: state.url
+    })
+
     {:noreply, close(reason, state)}
   end
 
   # New Messages from the transport_pid come in here
   @impl true
   def handle_info({:receive, message}, state) do
-    :telemetry.execute([:phoenix_client, :message, :received], %{size: byte_size(message)}, %{url: state.url})
+    start_time = System.monotonic_time()
     transport_receive(message, state)
+    duration = System.monotonic_time() - start_time
+
+    :telemetry.execute(
+      [:phoenix_client, :message, :received],
+      %{size: byte_size(message), duration: duration},
+      %{url: state.url}
+    )
+
     {:noreply, state}
   end
 
@@ -196,13 +228,31 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_info(:connect, %{transport: transport, transport_opts: opts} = state) do
-    :telemetry.execute([:phoenix_client, :connection, :attempt], %{}, %{url: state.url, reconnect: state.reconnect_timer != nil})
+    start_time = System.monotonic_time()
+
+    :telemetry.execute([:phoenix_client, :connection, :attempt], %{}, %{
+      url: state.url,
+      reconnect: state.reconnect_timer != nil
+    })
+
     case transport.open(state.url, opts) do
       {:ok, transport_pid} ->
+        duration = System.monotonic_time() - start_time
+
+        :telemetry.execute([:phoenix_client, :connection, :connected], %{duration: duration}, %{
+          url: state.url
+        })
+
         {:noreply, %{state | transport_pid: transport_pid, reconnect_timer: nil}}
 
       {:error, reason} ->
-        :telemetry.execute([:phoenix_client, :connection, :failed], %{}, %{reason: reason, url: state.url})
+        duration = System.monotonic_time() - start_time
+
+        :telemetry.execute([:phoenix_client, :connection, :failed], %{duration: duration}, %{
+          reason: reason,
+          url: state.url
+        })
+
         {:noreply, close(reason, state)}
     end
   end
@@ -213,7 +263,11 @@ defmodule PhoenixClient.Socket do
         {:closed, reason, transport_pid},
         %{transport_pid: transport_pid} = state
       ) do
-    :telemetry.execute([:phoenix_client, :connection, :closed], %{}, %{reason: reason, url: state.url})
+    :telemetry.execute([:phoenix_client, :connection, :closed], %{}, %{
+      reason: reason,
+      url: state.url
+    })
+
     {:noreply, close(reason, state)}
   end
 
@@ -233,7 +287,12 @@ defmodule PhoenixClient.Socket do
         message = Message.leave(topic)
         {_push, state} = push_message(message, state)
         channels = Map.drop(channels, [topic])
-        :telemetry.execute([:phoenix_client, :channel, :down], %{}, %{topic: topic, url: state.url})
+
+        :telemetry.execute([:phoenix_client, :channel, :down], %{}, %{
+          topic: topic,
+          url: state.url
+        })
+
         {:noreply, %{state | channels: channels}}
     end
   end
@@ -258,8 +317,15 @@ defmodule PhoenixClient.Socket do
          url: url
        }) do
     encoded = Message.encode!(serializer, message, json_library)
-    :telemetry.execute([:phoenix_client, :message, :sent], %{size: byte_size(encoded)}, %{event: message.event, topic: message.topic, url: url})
+    start_time = System.monotonic_time()
     send(pid, {:send, encoded})
+    duration = System.monotonic_time() - start_time
+
+    :telemetry.execute(
+      [:phoenix_client, :message, :sent],
+      %{size: byte_size(encoded), duration: duration},
+      %{event: message.event, topic: message.topic, url: url}
+    )
   end
 
   defp close(reason, %{channels: channels, reconnect_timer: nil} = state) do
@@ -272,11 +338,20 @@ defmodule PhoenixClient.Socket do
     end
 
     if state.reconnect do
-      :telemetry.execute([:phoenix_client, :connection, :reconnect_scheduled], %{interval: state.reconnect_interval}, %{reason: reason, url: state.url})
+      :telemetry.execute(
+        [:phoenix_client, :connection, :reconnect_scheduled],
+        %{interval: state.reconnect_interval},
+        %{reason: reason, url: state.url}
+      )
+
       timer_ref = Process.send_after(self(), :connect, state.reconnect_interval)
       %{state | reconnect_timer: timer_ref}
     else
-      :telemetry.execute([:phoenix_client, :connection, :closed_permanently], %{}, %{reason: reason, url: state.url})
+      :telemetry.execute([:phoenix_client, :connection, :closed_permanently], %{}, %{
+        reason: reason,
+        url: state.url
+      })
+
       state
     end
   end

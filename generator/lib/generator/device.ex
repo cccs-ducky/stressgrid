@@ -18,7 +18,7 @@ defmodule Stressgrid.Generator.Device do
     device_macros = opts |> Keyword.get(:device_macros, [])
 
     quote do
-      alias Stressgrid.Generator.{Device}
+      alias Stressgrid.Generator.Device
 
       def device_functions do
         unquote(device_functions)

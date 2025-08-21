@@ -4,7 +4,7 @@ defmodule Stressgrid.Generator.Connection do
   use GenServer
   require Logger
 
-  alias Stressgrid.Generator.{Connection, Cohort, Device, Histogram}
+  alias Stressgrid.Generator.{Connection, Cohort, Device, Histogram, TelemetryStore}
 
   @conn_timeout 5_000
   @report_interval 1_000
@@ -178,22 +178,29 @@ defmodule Stressgrid.Generator.Connection do
     {:ok, cpu_percent, connection} = cpu_utilization_percent(connection)
     telemetry_hists = Histogram.record(aggregate_hists, :cpu_percent, cpu_percent)
 
+    %{scalars: telemetry_store_scalars, hists: telemetry_store_hists} = TelemetryStore.collect()
+
     telemetry_scalars =
       Map.merge(
         aggregate_scalars,
         Map.merge(
-          %{
-            {:active_device_number, :total} => active_device_number
-          },
-          network_stats_scalars
+          Map.merge(
+            %{
+              {:active_device_number, :total} => active_device_number
+            },
+            network_stats_scalars
+          ),
+          telemetry_store_scalars
         )
       )
+
+    merged_hists = Map.merge(telemetry_hists, telemetry_store_hists)
 
     telemetry = %{
       first_script_error: first_script_error,
       scalars: telemetry_scalars,
       hists:
-        telemetry_hists
+        merged_hists
         |> Enum.map(fn {key, hist} ->
           {key, :hdr_histogram.to_binary(hist)}
         end)
