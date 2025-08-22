@@ -62,6 +62,7 @@ defmodule Stressgrid.Generator.Connection do
      }}
   end
 
+  @impl true
   def handle_info(
         :timeout,
         %Connection{conn_pid: conn_pid} = connection
@@ -81,6 +82,7 @@ defmodule Stressgrid.Generator.Connection do
     {:noreply, %{connection | stream_ref: stream_ref}}
   end
 
+  @impl true
   def handle_info(
         {:gun_down, conn_pid, :ws, reason, _, _},
         %Connection{conn_pid: conn_pid} = connection
@@ -88,6 +90,7 @@ defmodule Stressgrid.Generator.Connection do
     {:stop, {:disconnected, reason}, terminate_cohorts(connection)}
   end
 
+  @impl true
   def handle_info(
         {:gun_error, conn_pid, _, reason},
         %Connection{conn_pid: conn_pid} = connection
@@ -95,6 +98,7 @@ defmodule Stressgrid.Generator.Connection do
     {:stop, {:error, reason}, terminate_cohorts(connection)}
   end
 
+  @impl true
   def handle_info(
         {:gun_upgrade, conn_pid, stream_ref, ["websocket"], _headers},
         %Connection{id: id, conn_pid: conn_pid, stream_ref: stream_ref, timeout_ref: timeout_ref} =
@@ -112,6 +116,7 @@ defmodule Stressgrid.Generator.Connection do
     {:noreply, %{connection | timeout_ref: nil}}
   end
 
+  @impl true
   def handle_info(
         {:gun_response, conn_pid, _, _, status, _headers},
         %Connection{conn_pid: conn_pid} = connection
@@ -120,6 +125,7 @@ defmodule Stressgrid.Generator.Connection do
     {:stop, :shutdown, connection}
   end
 
+  @impl true
   def handle_info(
         {:gun_error, conn_pid, stream_ref, reason},
         %Connection{conn_pid: conn_pid, stream_ref: stream_ref} = connection
@@ -128,6 +134,7 @@ defmodule Stressgrid.Generator.Connection do
     {:stop, :shutdown, connection}
   end
 
+  @impl true
   def handle_info(
         {:gun_ws, conn_pid, stream_ref, {:binary, frame}},
         %Connection{conn_pid: conn_pid, stream_ref: stream_ref} = connection
@@ -139,6 +146,7 @@ defmodule Stressgrid.Generator.Connection do
     {:noreply, connection}
   end
 
+  @impl true
   def handle_info(
         {:gun_ws, conn_pid, stream_ref, _},
         %Connection{conn_pid: conn_pid, stream_ref: stream_ref} = connection
@@ -146,6 +154,7 @@ defmodule Stressgrid.Generator.Connection do
     {:noreply, connection}
   end
 
+  @impl true
   def handle_info(:report, %Connection{prepare_script_error: prepare_script_error} = connection) do
     Process.send_after(self(), :report, @report_interval)
 
@@ -212,6 +221,11 @@ defmodule Stressgrid.Generator.Connection do
       |> push_telemetry(telemetry)
 
     {:noreply, connection}
+  end
+
+  @impl true
+  def terminate({:disconnected, _reason}, _state) do
+    :ok
   end
 
   defp receive_term(
