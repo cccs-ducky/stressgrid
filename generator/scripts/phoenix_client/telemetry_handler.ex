@@ -48,7 +48,7 @@ defmodule PhoenixClient.TelemetryHandler do
     TelemetryStore.inc_counter(:phoenix_connection_attempts, 1)
   end
 
-  def handle_event([:phoenix_client, :connection, :connected], measurements, _metadata, _config) do
+  def handle_event([:phoenix_client, :connection, :connected], _measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_connection_success, 1)
   end
 
@@ -65,7 +65,7 @@ defmodule PhoenixClient.TelemetryHandler do
     TelemetryStore.inc_counter(:phoenix_connection_closed, 1)
   end
 
-  def handle_event([:phoenix_client, :connection, :failed], measurements, _metadata, _config) do
+  def handle_event([:phoenix_client, :connection, :failed], _measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_connection_failures, 1)
   end
 
@@ -87,11 +87,11 @@ defmodule PhoenixClient.TelemetryHandler do
     TelemetryStore.inc_counter(:phoenix_connections_closed_permanently, 1)
   end
 
-  def handle_event([:phoenix_client, :channel, :joined], measurements, _metadata, _config) do
+  def handle_event([:phoenix_client, :channel, :joined], _measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_channel_joins, 1)
   end
 
-  def handle_event([:phoenix_client, :channel, :left], measurements, _metadata, _config) do
+  def handle_event([:phoenix_client, :channel, :left], _measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_channel_leaves, 1)
   end
 
@@ -99,15 +99,15 @@ defmodule PhoenixClient.TelemetryHandler do
     TelemetryStore.inc_counter(:phoenix_channel_crashes, 1)
   end
 
-  def handle_event([:phoenix_client, :message, :pushed], measurements, _metadata, _config) do
+  def handle_event([:phoenix_client, :message, :pushed], _measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_messages_pushed, 1)
   end
 
-  def handle_event([:phoenix_client, :message, :sent], measurements, _metadata, _config) do
+  def handle_event([:phoenix_client, :message, :sent], _measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_messages_sent, 1)
   end
 
-  def handle_event([:phoenix_client, :message, :received], measurements, _metadata, _config) do
+  def handle_event([:phoenix_client, :message, :received], _measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_messages_received, 1)
   end
 

@@ -112,7 +112,6 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_call({:push, %Message{} = message}, _from, state) do
-    start_time = System.monotonic_time()
     {push, state} = push_message(message, state)
 
     :telemetry.execute([:phoenix_client, :message, :pushed], %{}, %{
@@ -304,7 +303,7 @@ defmodule PhoenixClient.Socket do
          url: url
        }) do
     encoded = Message.encode!(serializer, message, json_library)
-    start_time = System.monotonic_time()
+
     send(pid, {:send, encoded})
 
     :telemetry.execute(
