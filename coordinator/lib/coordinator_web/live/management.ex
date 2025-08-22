@@ -482,9 +482,9 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       <% end %>
 
       <!-- Main Dashboard -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         <!-- Status Panel -->
-        <div class="bg-white shadow rounded-lg dark:bg-gray-800 dark:shadow-lg">
+        <div class="bg-white shadow rounded-lg dark:bg-gray-800 dark:shadow-lg lg:col-span-2">
           <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Run</h3>
           </div>
