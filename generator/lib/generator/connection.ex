@@ -223,11 +223,6 @@ defmodule Stressgrid.Generator.Connection do
     {:noreply, connection}
   end
 
-  @impl true
-  def terminate({:disconnected, _reason}, _state) do
-    :ok
-  end
-
   defp receive_term(
          connection,
          {:prepare,

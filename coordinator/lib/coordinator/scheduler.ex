@@ -12,9 +12,6 @@ defmodule Stressgrid.Coordinator.Scheduler do
     Management
   }
 
-  @cooldown_ms 10_000
-  @notify_interval_ms 1_000
-
   defmodule Run do
     defstruct id: nil,
               plan_name: nil,
@@ -49,7 +46,7 @@ defmodule Stressgrid.Coordinator.Scheduler do
     if run != nil do
       :ok = Management.notify_all(%{"run" => run_to_json(run)})
 
-      notify_timer_ref = Process.send_after(self(), :notify, @notify_interval_ms)
+      notify_timer_ref = Process.send_after(self(), :notify, Application.get_env(:coordinator, :notify_interval_ms))
 
       {:noreply, %{scheduler | run: %{run | notify_timer_ref: notify_timer_ref}}}
     else
@@ -140,12 +137,14 @@ defmodule Stressgrid.Coordinator.Scheduler do
         {ts + rampdown_step_ms, [schedule_op(ts, {:stop_cohort, "#{id}-#{i - 1}"}) | timer_refs]}
       end)
 
-    timer_refs = [schedule_state_change(ts, :cooldown, @cooldown_ms) | timer_refs]
-    ts = ts + @cooldown_ms
+    cooldown_ms = Application.get_env(:coordinator, :cooldown_ms)
+
+    timer_refs = [schedule_state_change(ts, :cooldown, cooldown_ms) | timer_refs]
+    ts = ts + cooldown_ms
 
     timer_refs = [schedule_op(ts, :stop) | timer_refs]
 
-    notify_timer_ref = Process.send_after(self(), :notify, @notify_interval_ms)
+    notify_timer_ref = Process.send_after(self(), :notify, Application.get_env(:coordinator, :notify_interval_ms))
 
     %Run{
       id: id,
