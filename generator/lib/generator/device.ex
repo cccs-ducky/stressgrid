@@ -222,6 +222,8 @@ defmodule Stressgrid.Generator.Device do
     task_script = args |> Keyword.fetch!(:script)
     task_params = args |> Keyword.fetch!(:params)
 
+    {protocol, _, _, _} = address
+
     _ =
       Kernel.send(
         self(),
@@ -230,7 +232,8 @@ defmodule Stressgrid.Generator.Device do
 
     Map.merge(state, %{
       id: id,
-      device: %Device{}
+      device: %Device{},
+      protocol: protocol
     })
   end
 
@@ -490,6 +493,20 @@ defmodule Stressgrid.Generator.Device do
   end
 
   def do_task_completed(%{device: %Device{task: %Task{ref: task_ref}}} = state) do
+    Logger.debug("Script exited normally for device #{state.id}")
+
+    true = Process.demonitor(task_ref, [:flush])
+
+    state |> do_recycle(false)
+  end
+
+  # for scripts shutdown signal considered a normal exit,
+  # shutdown tells other linked processes to stop accordingly
+  # which is useful for cleaning up resources
+  def do_task_down(
+        %{device: %Device{task: %Task{ref: task_ref}}, protocol: :script} = state,
+        :shutdown
+      ) do
     Logger.debug("Script exited normally for device #{state.id}")
 
     true = Process.demonitor(task_ref, [:flush])

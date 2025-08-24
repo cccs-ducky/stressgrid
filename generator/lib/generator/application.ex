@@ -36,7 +36,26 @@ defmodule Stressgrid.Generator.Application do
       [
         Cohort.Supervisor,
         {Task.Supervisor, name: Stressgrid.Generator.TaskSupervisor},
-        {Connection, id: id, host: host, port: port}
+        {Connection, id: id, host: host, port: port},
+        # children used in generator scripts
+        {Registry, keys: :unique, name: PhoenixClient.SocketRegistry},
+        TelemetryReporter,
+        PhoenixClient.ChannelSupervisor,
+        {Finch,
+          name: Stressgrid.Generator.Finch,
+          pools: %{
+            :default => [
+              size: 40,
+              count: System.schedulers_online(),
+              conn_max_idle_time: 5_000,
+              conn_opts: [
+                transport_opts: [
+                  nodelay: true,
+                  keepalive: true
+                ]
+              ]
+            ]
+          }}
       ] ++ Application.get_env(:stressgrid, :supervisor_children, [])
 
     opts = [

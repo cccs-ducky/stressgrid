@@ -35,6 +35,6 @@ defmodule Stressgrid.Generator.Scripts.HttpRequestDemo do
         Logger.error("HTTP request failed: #{inspect(reason)}")
     end
 
-    {:stop, :normal, state}
+    {:stop, :shutdown, state}
   end
 end

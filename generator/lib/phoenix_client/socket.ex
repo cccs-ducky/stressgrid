@@ -51,6 +51,8 @@ defmodule PhoenixClient.Socket do
   ## Callbacks
   @impl true
   def init(opts) do
+    Registry.register(PhoenixClient.SocketRegistry, self(), [])
+
     transport = opts[:transport] || @default_transport
 
     json_library = Keyword.get(opts, :json_library, Jason)

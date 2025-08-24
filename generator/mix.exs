@@ -63,6 +63,10 @@ defmodule Stressgrid.Generator.MixProject do
       {:dialyxir, "~> 1.4", runtime: false},
       {:dotenv, "~> 3.1"},
       {:telemetry_metrics, "~> 1.1"},
+      # deps used in generator scripts
+      {:tesla, "~> 1.11"},
+      {:finch, "~> 0.20"},
+      {:websocket_client, "~> 1.5"}
     ] ++ Application.get_env(:stressgrid, :custom_deps, [])
   end
 end

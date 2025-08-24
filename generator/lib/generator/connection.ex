@@ -28,6 +28,7 @@ defmodule Stressgrid.Generator.Connection do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
   end
 
+  @impl true
   def init(args) do
     :erlang.system_flag(:scheduler_wall_time, true)
 
