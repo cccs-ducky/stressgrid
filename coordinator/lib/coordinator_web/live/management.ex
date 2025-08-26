@@ -698,6 +698,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
         String.ends_with?(key, "_us") -> "(latency)"
         String.ends_with?(key, "_bytes_count") -> "(load, bytes)"
         String.ends_with?(key, "_count") -> "(count)"
+        String.ends_with?(key, "_total") -> "(gauge)"
         true -> ""
       end
 
@@ -734,6 +735,9 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
             format_bytes(value)
 
           String.ends_with?(key, "_count") ->
+            format_number(value)
+
+          String.ends_with?(key, "_total") ->
             format_number(value)
 
           true ->
@@ -826,6 +830,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       String.contains?(key_str, "_per_second") or String.contains?(key_str, "_bytes_per_second") -> :rate
       String.contains?(key_str, "_us") -> :latency
       String.contains?(key_str, "_count") or String.contains?(key_str, "_bytes_count") -> :count
+      String.contains?(key_str, "_total") -> :total
       true -> :default
     end
   end
@@ -836,6 +841,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       :rate -> "text-blue-600 dark:text-blue-300"
       :latency -> "text-purple-600 dark:text-purple-300"
       :count -> "text-green-600 dark:text-green-300"
+      :total -> "text-orange-600 dark:text-orange-300"
       :default -> "text-gray-700 dark:text-gray-100"
     end
   end
@@ -846,6 +852,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       :rate -> "text-blue-600 dark:text-blue-300"
       :latency -> "text-purple-600 dark:text-purple-300"
       :count -> "text-green-600 dark:text-green-300"
+      :total -> "text-orange-600 dark:text-orange-300"
       :default -> "text-gray-900 dark:text-gray-100"
     end
   end

@@ -378,7 +378,7 @@ defmodule Stressgrid.Coordinator.Reporter do
   defp compute_totals(generator_totals) do
     Enum.reduce(generator_totals, %{}, fn {_, totals}, total_sums ->
       Enum.reduce(totals, total_sums, fn {key, value}, total_sums ->
-        Map.update(total_sums, key, value, fn value0 -> value0 + value end)
+        Map.update(total_sums, :"#{key}_total", value, fn value0 -> value0 + value end)
       end)
     end)
   end
