@@ -50,7 +50,7 @@ defmodule Stressgrid.Generator.Application do
             :default => [
               size: 40,
               count: System.schedulers_online(),
-              conn_max_idle_time: 5_000,
+              conn_max_idle_time: 60_000,
               conn_opts: [
                 transport_opts: [
                   nodelay: true,

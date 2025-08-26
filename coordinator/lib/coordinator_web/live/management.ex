@@ -822,7 +822,6 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   end
 
   defp get_metric_type(key) do
-    IO.inspect({"key", key}, limit: :infinity, structs: false)
     key_str = to_string(key) |> String.downcase()
 
     cond do
