@@ -551,13 +551,14 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
               <!-- Statistics -->
               <%= for {key, values} <- Map.get(@state, "stats", %{}) |> Enum.sort_by(fn {k, _v} -> k end) do %>
+                <% metric_type = get_metric_type(key) %>
                 <div class="flex justify-between items-center">
                   <div class="flex w-full">
                     <div class="flex-1 min-w-0">
-                      <span class="text-sm font-medium text-gray-700 dark:text-gray-200 break-all"><%= format_stat_name(key) %></span>
+                      <span class={["text-sm break-all", get_metric_colors(metric_type)]}><%= format_stat_name(key) %></span>
                     </div>
                     <div class="flex-none flex items-center space-x-3">
-                      <span class="text-sm text-gray-900 dark:text-gray-100"><%= format_stat_value(key, values) %></span>
+                      <span class={["text-sm", get_value_colors(metric_type)]}><%= format_stat_value(key, values) %></span>
                       <%= if key == "cpu_percent" do %>
                         <svg class={["w-4 h-4", if(is_red_cpu?(values), do: "text-red-500 dark:text-red-400", else: "text-green-500 dark:text-green-400")]} fill="currentColor" viewBox="0 0 20 20">
                           <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
@@ -793,9 +794,12 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   end
 
   defp is_error_stat?(key) do
-    key_str = to_string(key)
+    key_str = to_string(key) |> String.downcase()
 
-    String.ends_with?(key_str, "_error_count") or String.contains?(key_str, "error")
+    String.ends_with?(key_str, "_error_count") or
+    String.contains?(key_str, "error") or
+    String.contains?(key_str, "fail") or
+    String.contains?(key_str, "timeout")
   end
 
   defp has_errors?(report) do
@@ -811,5 +815,38 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     |> Enum.reject(&is_nil/1)
     |> Enum.reverse()
     |> Enum.join(",")
+  end
+
+  defp get_metric_type(key) do
+    IO.inspect({"key", key}, limit: :infinity, structs: false)
+    key_str = to_string(key) |> String.downcase()
+
+    cond do
+      is_error_stat?(key) -> :error
+      String.contains?(key_str, "_per_second") or String.contains?(key_str, "_bytes_per_second") -> :rate
+      String.contains?(key_str, "_us") -> :latency
+      String.contains?(key_str, "_count") or String.contains?(key_str, "_bytes_count") -> :count
+      true -> :default
+    end
+  end
+
+  defp get_metric_colors(type) do
+    case type do
+      :error -> "text-red-600 dark:text-red-300"
+      :rate -> "text-blue-600 dark:text-blue-300"
+      :latency -> "text-purple-600 dark:text-purple-300"
+      :count -> "text-green-600 dark:text-green-300"
+      :default -> "text-gray-700 dark:text-gray-100"
+    end
+  end
+
+  defp get_value_colors(type) do
+    case type do
+      :error -> "text-red-600 dark:text-red-300"
+      :rate -> "text-blue-600 dark:text-blue-300"
+      :latency -> "text-purple-600 dark:text-purple-300"
+      :count -> "text-green-600 dark:text-green-300"
+      :default -> "text-gray-900 dark:text-gray-100"
+    end
   end
 end
