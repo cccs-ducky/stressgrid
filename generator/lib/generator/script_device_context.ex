@@ -14,7 +14,8 @@ defmodule Stressgrid.Generator.ScriptDeviceContext do
               generator_id: var!(generator_id),
               generator_numeric_id: var!(generator_numeric_id),
               device_id: var!(id),
-              device_pid: var!(device_pid)
+              device_pid: var!(device_pid),
+              device_numeric_id: var!(device_numeric_id)
             )
         else
           {:error, "script module not found #{script_module}"}

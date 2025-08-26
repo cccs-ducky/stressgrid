@@ -85,7 +85,8 @@ defmodule Stressgrid.Generator.Device do
 
       @impl true
       def handle_info(
-            {:init, id, generator_id, generator_numeric_id, address, task_script, task_params},
+            {:init, id, generator_id, generator_numeric_id, device_numeric_id, address,
+             task_script, task_params},
             state
           ) do
         {:noreply,
@@ -95,6 +96,7 @@ defmodule Stressgrid.Generator.Device do
            id,
            generator_id,
            generator_numeric_id,
+           device_numeric_id,
            address,
            task_script,
            task_params,
@@ -218,6 +220,7 @@ defmodule Stressgrid.Generator.Device do
     id = args |> Keyword.fetch!(:id)
     generator_id = args |> Keyword.fetch!(:generator_id)
     generator_numeric_id = args |> Keyword.fetch!(:generator_numeric_id)
+    device_numeric_id = args |> Keyword.fetch!(:device_numeric_id)
     address = args |> Keyword.fetch!(:address)
     task_script = args |> Keyword.fetch!(:script)
     task_params = args |> Keyword.fetch!(:params)
@@ -227,13 +230,17 @@ defmodule Stressgrid.Generator.Device do
     _ =
       Kernel.send(
         self(),
-        {:init, id, generator_id, generator_numeric_id, address, task_script, task_params}
+        {:init, id, generator_id, generator_numeric_id, device_numeric_id, address, task_script,
+         task_params}
       )
 
     Map.merge(state, %{
       id: id,
       device: %Device{},
-      protocol: protocol
+      protocol: protocol,
+      generator_id: generator_id,
+      generator_numeric_id: generator_numeric_id,
+      device_numeric_id: device_numeric_id
     })
   end
 
@@ -268,6 +275,7 @@ defmodule Stressgrid.Generator.Device do
         id,
         generator_id,
         generator_numeric_id,
+        device_numeric_id,
         address,
         task_script,
         task_params,
@@ -304,7 +312,8 @@ defmodule Stressgrid.Generator.Device do
          inc_counter: 1,
          inc_counter: 2,
          generator_numeric_id: 0,
-         generators_count: 0
+         generators_count: 0,
+         device_numeric_id: 0
        ]
        |> Enum.sort()}
 
@@ -328,6 +337,7 @@ defmodule Stressgrid.Generator.Device do
             id: id,
             generator_id: generator_id,
             generator_numeric_id: generator_numeric_id,
+            device_numeric_id: device_numeric_id,
             device_pid: device_pid,
             params: task_params
           ],
@@ -381,7 +391,8 @@ defmodule Stressgrid.Generator.Device do
          inc_counter: 1,
          inc_counter: 2,
          generator_numeric_id: 0,
-         generators_count: 0
+         generators_count: 0,
+         device_numeric_id: 0
        ]
        |> Enum.sort()}
 
@@ -476,10 +487,26 @@ defmodule Stressgrid.Generator.Device do
 
   defp extract_defmodule_nodes(_), do: []
 
-  def start_task(%{device: %Device{task: nil, task_fn: task_fn} = device} = state) do
+  def start_task(
+        %{
+          device: %Device{task: nil, task_fn: task_fn} = device,
+          id: id,
+          device_numeric_id: device_numeric_id,
+          generator_id: generator_id,
+          generator_numeric_id: generator_numeric_id
+        } = state
+      ) do
+    device_pid = self()
+
     task =
       Task.Supervisor.async_nolink(Stressgrid.Generator.TaskSupervisor, fn ->
         try do
+          Process.put(:device_id, id)
+          Process.put(:device_pid, device_pid)
+          Process.put(:device_numeric_id, device_numeric_id)
+          Process.put(:generator_id, generator_id)
+          Process.put(:generator_numeric_id, generator_numeric_id)
+
           task_fn.()
         catch
           :exit, :device_terminated ->

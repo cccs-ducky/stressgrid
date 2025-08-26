@@ -8,7 +8,7 @@ defmodule Stressgrid.Generator.ScriptGenServer do
         GenServer.start_link(
           __MODULE__,
           args,
-          name: "#{__MODULE__}-#{:erlang.unique_integer([:monotonic, :positive])}"
+          name: "#{__MODULE__}-#{Keyword.fetch!(args, :device_numeric_id)}"
         )
       end
 
@@ -16,17 +16,20 @@ defmodule Stressgrid.Generator.ScriptGenServer do
       def init(args) do
         device_id = Keyword.fetch!(args, :device_id)
         device_pid = Keyword.fetch!(args, :device_pid)
+        device_numeric_id = Keyword.fetch!(args, :device_numeric_id)
         generator_id = Keyword.fetch!(args, :generator_id)
         generator_numeric_id = Keyword.fetch!(args, :generator_numeric_id)
 
         Process.put(:device_id, device_id)
         Process.put(:device_pid, device_pid)
+        Process.put(:device_numeric_id, device_numeric_id)
         Process.put(:generator_id, generator_id)
         Process.put(:generator_numeric_id, generator_numeric_id)
 
         case do_init(%{
                device_id: device_id,
                device_pid: device_pid,
+               device_numeric_id: device_numeric_id,
                generator_id: generator_id,
                generator_numeric_id: generator_numeric_id
              }) do

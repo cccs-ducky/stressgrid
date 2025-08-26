@@ -10,10 +10,13 @@ defmodule Stressgrid.Generator.Device.Supervisor do
   end
 
   def start_child(cohort_pid, id, generator_id, generator_numeric_id, address, script, params) do
+    device_numeric_id = :atomics.add_get(:persistent_term.get(:sg_device_counter), 1, 1) - 1
+
     DynamicSupervisor.start_child(
       cohort_pid,
       {address_module(address),
        id: id,
+       device_numeric_id: device_numeric_id,
        generator_id: generator_id,
        generator_numeric_id: generator_numeric_id,
        address: address,
