@@ -555,17 +555,17 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                 <div class="flex justify-between items-center">
                   <div class="flex w-full">
                     <div class="flex-1 min-w-0">
-                      <span class={["text-sm break-all", get_metric_colors(metric_type)]}><%= format_stat_name(key) %></span>
+                      <span class={["text-sm break-all", get_metric_colors(metric_type, values)]}><%= format_stat_name(key) %></span>
                     </div>
                     <div class="flex-none flex items-center space-x-3">
-                      <span class={["text-sm", get_value_colors(metric_type)]}><%= format_stat_value(key, values) %></span>
+                      <span class={["text-sm", get_value_colors(metric_type, values)]}><%= format_stat_value(key, values) %></span>
                       <%= if key == "cpu_percent" do %>
-                        <svg class={["w-4 h-4", if(is_red_cpu?(values), do: "text-red-500 dark:text-red-400", else: "text-green-500 dark:text-green-400")]} fill="currentColor" viewBox="0 0 20 20">
+                        <svg class={["w-4 h-4", if(is_red_cpu?(values), do: "text-red-500 dark:text-red-400", else: "text-emerald-500 dark:text-emerald-400")]} fill="currentColor" viewBox="0 0 20 20">
                           <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
                         </svg>
                       <% end %>
                       <%= if is_error_stat?(key) do %>
-                        <svg class="w-4 h-4 text-red-500 dark:text-red-400" fill="currentColor" viewBox="0 0 20 20">
+                        <svg class="w-4 h-4 text-rose-500 dark:text-rose-400" fill="currentColor" viewBox="0 0 20 20">
                           <path fill-rule="evenodd" d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z" clip-rule="evenodd"></path>
                         </svg>
                       <% end %>
@@ -605,7 +605,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
                           <div class="flex items-center space-x-1">
                             <span class="text-xs text-gray-500 dark:text-gray-400">Max CPU</span>
                             <span class="text-xs text-gray-900 dark:text-gray-100"><%= get_in(report, ["maximums", :cpu_percent]) || 0 %>%</span>
-                            <svg class={["w-4 h-4", if(is_red_cpu_max?(report), do: "text-red-500 dark:text-red-400", else: "text-green-500 dark:text-green-400")]} fill="currentColor" viewBox="0 0 20 20">
+                            <svg class={["w-4 h-4", if(is_red_cpu_max?(report), do: "text-red-500 dark:text-red-400", else: "text-emerald-500 dark:text-emerald-400")]} fill="currentColor" viewBox="0 0 20 20">
                               <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"></path>
                             </svg>
                           </div>
@@ -790,6 +790,8 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     end
   end
 
+  defp is_red_cpu?(_), do: false
+
   defp is_red_cpu_max?(report) do
     case get_in(report, ["maximums", :cpu_percent]) do
       value when is_number(value) -> value > 80
@@ -826,6 +828,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
     cond do
       is_error_stat?(key) -> :error
+      String.contains?(key_str, "cpu") -> :cpu
       String.contains?(key_str, "_per_second") or String.contains?(key_str, "_bytes_per_second") -> :rate
       String.contains?(key_str, "_us") -> :latency
       String.contains?(key_str, "_count") or String.contains?(key_str, "_bytes_count") -> :count
@@ -834,24 +837,26 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     end
   end
 
-  defp get_metric_colors(type) do
+  defp get_metric_colors(type, values \\ nil) do
     case type do
-      :error -> "text-red-600 dark:text-red-300"
-      :rate -> "text-blue-600 dark:text-blue-300"
-      :latency -> "text-purple-600 dark:text-purple-300"
-      :count -> "text-green-600 dark:text-green-300"
-      :total -> "text-orange-600 dark:text-orange-300"
+      :error -> "text-rose-300 dark:text-rose-300"
+      :cpu -> if is_red_cpu?(values), do: "text-red-300 dark:text-red-300", else: "text-emerald-300 dark:text-emerald-300"
+      :rate -> "text-blue-300 dark:text-blue-300"
+      :latency -> "text-amber-300 dark:text-amber-300"
+      :count -> "text-green-300 dark:text-green-300"
+      :total -> "text-purple-300 dark:text-purple-300"
       :default -> "text-gray-700 dark:text-gray-100"
     end
   end
 
-  defp get_value_colors(type) do
+  defp get_value_colors(type, values \\ nil) do
     case type do
-      :error -> "text-red-600 dark:text-red-300"
+      :error -> "text-rose-600 dark:text-rose-300"
+      :cpu -> if is_red_cpu?(values), do: "text-red-600 dark:text-red-300", else: "text-emerald-600 dark:text-emerald-300"
       :rate -> "text-blue-600 dark:text-blue-300"
-      :latency -> "text-purple-600 dark:text-purple-300"
+      :latency -> "text-amber-600 dark:text-amber-300"
       :count -> "text-green-600 dark:text-green-300"
-      :total -> "text-orange-600 dark:text-orange-300"
+      :total -> "text-purple-600 dark:text-purple-300"
       :default -> "text-gray-900 dark:text-gray-100"
     end
   end
