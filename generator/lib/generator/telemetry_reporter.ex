@@ -1,4 +1,4 @@
-defmodule TelemetryReporter do
+defmodule PhoenixClient.TelemetryReporter do
   use GenServer
 
   @update_interval 1000

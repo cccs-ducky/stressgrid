@@ -42,7 +42,7 @@ defmodule Stressgrid.Generator.Application do
         {Connection, id: id, host: host, port: port},
         # children used in generator scripts
         {Registry, keys: :unique, name: PhoenixClient.SocketRegistry},
-        TelemetryReporter,
+        PhoenixClient.TelemetryReporter,
         PhoenixClient.ChannelSupervisor,
         {Finch,
           name: Stressgrid.Generator.Finch,
