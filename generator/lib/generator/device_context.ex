@@ -82,4 +82,21 @@ defmodule Stressgrid.Generator.DeviceContext do
   def payload(size) do
     random_bytes(size)
   end
+
+  # convenience methods to make stats macros work in subprocesses
+  def set_device_vars(vars) when is_map(vars) do
+    if Map.has_key?(vars, :device_id), do: Process.put(:device_id, vars.device_id)
+    if Map.has_key?(vars, :device_pid), do: Process.put(:device_pid, vars.device_pid)
+    if Map.has_key?(vars, :device_numeric_id), do: Process.put(:device_numeric_id, vars.device_numeric_id)
+    if Map.has_key?(vars, :generator_id), do: Process.put(:generator_id, vars.generator_id)
+    if Map.has_key?(vars, :generator_numeric_id), do: Process.put(:generator_numeric_id, vars.generator_numeric_id)
+  end
+
+  def set_device_vars(vars) when is_list(vars) do
+    if Keyword.has_key?(vars, :device_id), do: Process.put(:device_id, Keyword.get(vars, :device_id))
+    if Keyword.has_key?(vars, :device_pid), do: Process.put(:device_pid, Keyword.get(vars, :device_pid))
+    if Keyword.has_key?(vars, :device_numeric_id), do: Process.put(:device_numeric_id, Keyword.get(vars, :device_numeric_id))
+    if Keyword.has_key?(vars, :generator_id), do: Process.put(:generator_id, Keyword.get(vars, :generator_id))
+    if Keyword.has_key?(vars, :generator_numeric_id), do: Process.put(:generator_numeric_id, Keyword.get(vars, :generator_numeric_id))
+  end
 end
