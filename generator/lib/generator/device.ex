@@ -517,6 +517,8 @@ defmodule Stressgrid.Generator.Device do
       end)
 
     %{state | device: %{device | task: task}}
+    |> do_inc_counter(:task_run_attempts, 1)
+    |> do_start_timing(:task_run_duration)
   end
 
   def do_task_completed(%{device: %Device{task: %Task{ref: task_ref}}} = state) do
@@ -524,7 +526,10 @@ defmodule Stressgrid.Generator.Device do
 
     true = Process.demonitor(task_ref, [:flush])
 
-    state |> do_recycle(false)
+    state
+    |> do_stop_timing(:task_run_duration)
+    |> do_inc_counter(:task_run_completed, 1)
+    |> do_recycle(false)
   end
 
   # for scripts shutdown signal considered a normal exit,
@@ -538,7 +543,9 @@ defmodule Stressgrid.Generator.Device do
 
     true = Process.demonitor(task_ref, [:flush])
 
-    state |> do_recycle(false)
+    state
+    |> do_stop_timing(:task_run_duration)
+    |> do_recycle(false)
   end
 
   def do_task_down(
@@ -547,6 +554,7 @@ defmodule Stressgrid.Generator.Device do
       ) do
     next_state =
       state
+      |> do_stop_timing(:task_run_duration)
       |> do_recycle(true)
       |> do_inc_counter(reason |> task_reason_to_key(), 1)
 
@@ -639,12 +647,12 @@ defmodule Stressgrid.Generator.Device do
   defp task_reason_to_key({:timeout, {GenServer, :call, _}}) do
     Logger.debug("Script timeout")
 
-    :timeout_task_error
+    :task_timeout_error
   end
 
   defp task_reason_to_key(reason) do
     Logger.error("Script error #{inspect(reason)}")
 
-    :unknown_task_error
+    :task_unknown_error
   end
 end

@@ -27,7 +27,7 @@ defmodule TelemetryReporter do
     count =
       Registry.select(PhoenixClient.SocketRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$1"]}])
       |> Enum.reduce(0, fn pid, acc ->
-        if PhoenixClient.Socket.connected?(pid), do: acc + 1, else: acc
+        if Process.alive?(pid) and PhoenixClient.Socket.connected?(pid), do: acc + 1, else: acc
       end)
 
     :telemetry.execute([:phoenix_client, :connections, :total], %{count: count}, %{})
