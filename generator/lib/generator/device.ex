@@ -20,6 +20,8 @@ defmodule Stressgrid.Generator.Device do
     quote do
       alias Stressgrid.Generator.Device
 
+      require Logger
+
       def device_functions do
         unquote(device_functions)
       end
@@ -139,6 +141,8 @@ defmodule Stressgrid.Generator.Device do
 
       @impl true
       def handle_info({:EXIT, _pid, reason}, state) do
+        Logger.debug("Exiting device #{state.id}")
+
         state =
           case state.device.task do
             nil ->
@@ -154,6 +158,8 @@ defmodule Stressgrid.Generator.Device do
 
       @impl true
       def terminate(reason, state) do
+        Logger.debug("Terminating device #{state.id}")
+
         case state.device.task do
           nil -> :ok
           task -> Task.shutdown(task, :brutal_kill)
