@@ -844,7 +844,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       :rate -> "text-blue-200 dark:text-blue-200"
       :latency -> "text-amber-200 dark:text-amber-200"
       :count -> "text-green-200 dark:text-green-200"
-      :total -> "text-purple-200 dark:text-purple-200"
+      :total -> "text-orange-400 dark:text-orange-400"
       :default -> "text-gray-700 dark:text-gray-100"
     end
   end
@@ -856,7 +856,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       :rate -> "text-blue-200 dark:text-blue-200"
       :latency -> "text-amber-200 dark:text-amber-200"
       :count -> "text-green-200 dark:text-green-200"
-      :total -> "text-purple-200 dark:text-purple-200"
+      :total -> "text-orange-400 dark:text-orange-400"
       :default -> "text-gray-700 dark:text-gray-100"
     end
   end
