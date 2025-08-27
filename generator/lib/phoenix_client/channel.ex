@@ -88,6 +88,8 @@ defmodule PhoenixClient.Channel do
   # Callbacks
   @impl true
   def init({socket, topic, params}) do
+    Process.link(socket)
+
     {:ok,
      %{
        caller: nil,
@@ -175,7 +177,6 @@ defmodule PhoenixClient.Channel do
     try do
       case GenServer.call(pid, :join, timeout) do
         {:ok, reply} ->
-          Process.link(pid)
           {:ok, reply, pid}
 
         error ->
