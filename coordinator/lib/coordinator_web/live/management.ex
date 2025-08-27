@@ -837,27 +837,27 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     end
   end
 
-  defp get_metric_colors(type, values \\ nil) do
+  defp get_metric_colors(type, values) do
     case type do
-      :error -> "text-rose-300 dark:text-rose-300"
-      :cpu -> if is_red_cpu?(values), do: "text-red-300 dark:text-red-300", else: "text-emerald-300 dark:text-emerald-300"
-      :rate -> "text-blue-300 dark:text-blue-300"
-      :latency -> "text-amber-300 dark:text-amber-300"
-      :count -> "text-green-300 dark:text-green-300"
-      :total -> "text-purple-300 dark:text-purple-300"
+      :error -> "text-rose-300 dark:text-rose-200"
+      :cpu -> if is_red_cpu?(values), do: "text-red-200 dark:text-red-200", else: "text-emerald-200 dark:text-emerald-200"
+      :rate -> "text-blue-200 dark:text-blue-200"
+      :latency -> "text-amber-200 dark:text-amber-200"
+      :count -> "text-green-200 dark:text-green-200"
+      :total -> "text-purple-200 dark:text-purple-200"
       :default -> "text-gray-700 dark:text-gray-100"
     end
   end
 
-  defp get_value_colors(type, values \\ nil) do
+  defp get_value_colors(type, values) do
     case type do
-      :error -> "text-rose-600 dark:text-rose-300"
-      :cpu -> if is_red_cpu?(values), do: "text-red-600 dark:text-red-300", else: "text-emerald-600 dark:text-emerald-300"
-      :rate -> "text-blue-600 dark:text-blue-300"
-      :latency -> "text-amber-600 dark:text-amber-300"
-      :count -> "text-green-600 dark:text-green-300"
-      :total -> "text-purple-600 dark:text-purple-300"
-      :default -> "text-gray-900 dark:text-gray-100"
+      :error -> "text-rose-600 dark:text-rose-200"
+      :cpu -> if is_red_cpu?(values), do: "text-red-200 dark:text-red-200", else: "text-emerald-200 dark:text-emerald-200"
+      :rate -> "text-blue-200 dark:text-blue-200"
+      :latency -> "text-amber-200 dark:text-amber-200"
+      :count -> "text-green-200 dark:text-green-200"
+      :total -> "text-purple-200 dark:text-purple-200"
+      :default -> "text-gray-700 dark:text-gray-100"
     end
   end
 end
