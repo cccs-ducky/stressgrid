@@ -523,8 +523,8 @@ defmodule Stressgrid.Generator.Device do
       end)
 
     %{state | device: %{device | task: task}}
-    |> do_inc_counter(:task_run_attempts, 1)
     |> do_start_timing(:task_run_duration)
+    |> do_inc_counter(:task_run_attempts, 1)
   end
 
   def do_task_completed(%{device: %Device{task: %Task{ref: task_ref}}} = state) do
