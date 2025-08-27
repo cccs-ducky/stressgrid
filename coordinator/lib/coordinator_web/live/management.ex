@@ -112,7 +112,7 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
   def handle_event("abort_run", _params, socket) do
     send_websocket_message(["abort_run"])
-    {:noreply, socket}
+    {:noreply, assign(socket, :run, nil) |> assign(:stats, nil)}
   end
 
   def handle_event("remove_report", %{"id" => id}, socket) do
@@ -128,18 +128,21 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
   end
 
   defp build_run_plan(_params, assigns) do
-    with {:ok, size} <- parse_int(assigns.desired_size, %{ key: "desired_size" }),
-         {:ok, port} <- parse_int(assigns.port || "80", %{ key: "port" }),
-         {:ok, rampup} <- parse_int(assigns.rampup_secs, %{ key: "rampup_secs" }),
-         {:ok, sustain} <- parse_int(assigns.sustain_secs, %{ key: "sustain_secs" }),
-         {:ok, rampdown} <- parse_int(assigns.rampdown_secs, %{ key: "rampdown_secs" }),
-         {:ok, params_obj} <- parse_json(assigns.params || "{}", %{ key: "params" }) do
+    with {:ok, size} <- parse_int(assigns.desired_size, %{key: "desired_size"}),
+         {:ok, port} <- parse_int(assigns.port || "80", %{key: "port"}),
+         {:ok, rampup} <- parse_int(assigns.rampup_secs, %{key: "rampup_secs"}),
+         {:ok, sustain} <- parse_int(assigns.sustain_secs, %{key: "sustain_secs"}),
+         {:ok, rampdown} <- parse_int(assigns.rampdown_secs, %{key: "rampdown_secs"}),
+         {:ok, params_obj} <- parse_json(assigns.params || "{}", %{key: "params"}) do
       generator_count = Map.get(assigns.state, "generator_count", 0)
       ramp_step_size = generator_count * 10
-      ramp_step_size = cond do
-        size < ramp_step_size -> 1
-        true -> ramp_step_size
-      end
+
+      ramp_step_size =
+        cond do
+          size < ramp_step_size -> 1
+          true -> ramp_step_size
+        end
+
       ramp_steps = if ramp_step_size > 0, do: div(size, ramp_step_size), else: 1
       ramp_steps = max(ramp_steps, 1)
       effective_size = ramp_steps * ramp_step_size
@@ -196,7 +199,8 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     Jason.decode(value)
   rescue
     error ->
-      {:error, Map.merge(context, %{error: "invalid JSON: #{value}", orig_error: error}) |> inspect()}
+      {:error,
+       Map.merge(context, %{error: "invalid JSON: #{value}", orig_error: error}) |> inspect()}
   end
 
   defp send_websocket_message(message) do
@@ -803,9 +807,9 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     key_str = to_string(key) |> String.downcase()
 
     String.ends_with?(key_str, "_error_count") or
-    String.contains?(key_str, "error") or
-    String.contains?(key_str, "fail") or
-    String.contains?(key_str, "timeout")
+      String.contains?(key_str, "error") or
+      String.contains?(key_str, "fail") or
+      String.contains?(key_str, "timeout")
   end
 
   defp has_errors?(report) do
@@ -827,37 +831,80 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
     key_str = to_string(key) |> String.downcase()
 
     cond do
-      is_error_stat?(key) -> :error
-      String.contains?(key_str, "cpu") -> :cpu
-      String.contains?(key_str, "_per_second") or String.contains?(key_str, "_bytes_per_second") -> :rate
-      String.contains?(key_str, "_us") -> :latency
-      String.contains?(key_str, "_count") or String.contains?(key_str, "_bytes_count") -> :count
-      String.contains?(key_str, "_total") -> :total
-      true -> :default
+      is_error_stat?(key) ->
+        :error
+
+      String.contains?(key_str, "cpu") ->
+        :cpu
+
+      String.contains?(key_str, "_per_second") or String.contains?(key_str, "_bytes_per_second") ->
+        :rate
+
+      String.contains?(key_str, "_us") ->
+        :latency
+
+      String.contains?(key_str, "_count") or String.contains?(key_str, "_bytes_count") ->
+        :count
+
+      String.contains?(key_str, "_total") ->
+        :total
+
+      true ->
+        :default
     end
   end
 
   defp get_metric_colors(type, values) do
     case type do
-      :error -> "text-rose-300 dark:text-rose-200"
-      :cpu -> if is_red_cpu?(values), do: "text-red-200 dark:text-red-200", else: "text-emerald-200 dark:text-emerald-200"
-      :rate -> "text-blue-200 dark:text-blue-200"
-      :latency -> "text-amber-200 dark:text-amber-200"
-      :count -> "text-green-200 dark:text-green-200"
-      :total -> "text-orange-400 dark:text-orange-400"
-      :default -> "text-gray-700 dark:text-gray-100"
+      :error ->
+        "text-rose-300 dark:text-rose-200"
+
+      :cpu ->
+        if is_red_cpu?(values),
+          do: "text-red-200 dark:text-red-200",
+          else: "text-emerald-200 dark:text-emerald-200"
+
+      :rate ->
+        "text-blue-200 dark:text-blue-200"
+
+      :latency ->
+        "text-amber-200 dark:text-amber-200"
+
+      :count ->
+        "text-green-200 dark:text-green-200"
+
+      :total ->
+        "text-orange-400 dark:text-orange-400"
+
+      :default ->
+        "text-gray-700 dark:text-gray-100"
     end
   end
 
   defp get_value_colors(type, values) do
     case type do
-      :error -> "text-rose-600 dark:text-rose-200"
-      :cpu -> if is_red_cpu?(values), do: "text-red-200 dark:text-red-200", else: "text-emerald-200 dark:text-emerald-200"
-      :rate -> "text-blue-200 dark:text-blue-200"
-      :latency -> "text-amber-200 dark:text-amber-200"
-      :count -> "text-green-200 dark:text-green-200"
-      :total -> "text-orange-400 dark:text-orange-400"
-      :default -> "text-gray-700 dark:text-gray-100"
+      :error ->
+        "text-rose-600 dark:text-rose-200"
+
+      :cpu ->
+        if is_red_cpu?(values),
+          do: "text-red-200 dark:text-red-200",
+          else: "text-emerald-200 dark:text-emerald-200"
+
+      :rate ->
+        "text-blue-200 dark:text-blue-200"
+
+      :latency ->
+        "text-amber-200 dark:text-amber-200"
+
+      :count ->
+        "text-green-200 dark:text-green-200"
+
+      :total ->
+        "text-orange-400 dark:text-orange-400"
+
+      :default ->
+        "text-gray-700 dark:text-gray-100"
     end
   end
 end
