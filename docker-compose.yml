@@ -4,6 +4,10 @@ services:
   coordinator:
     build: .
     command: ["/app/coordinator/_build/prod/rel/coordinator/bin/coordinator", "start"]
+    environment:
+      - PHX_SERVER=true
+      - SECRET_KEY_BASE=3sUQ4Ig0XDzXiqGlDf9kBl1MVP4AaHgtzh7l35imGb0BbKt7QkrpMQMuwWRLqcjv
+      - LOGGER_LEVEL=error
     ports:
       - "4000:4000"
       - "8000:8000"
@@ -15,5 +19,6 @@ services:
     environment:
       - COORDINATOR_URL=ws://coordinator:9696
       - GENERATOR_ID=generator-1
+      - LOGGER_LEVEL=error
     depends_on:
       - coordinator

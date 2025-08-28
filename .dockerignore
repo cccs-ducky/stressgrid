@@ -19,6 +19,12 @@ coordinator/priv/static/management/
 client/node_modules/
 client/lib/
 
+# ENV files
+coordinator/.env
+coordinator/.env.example
+generator/.env
+generator/.env.example
+
 # Dependencies
 coordinator/deps/
 generator/deps/
