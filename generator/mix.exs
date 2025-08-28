@@ -15,11 +15,25 @@ defmodule Stressgrid.Generator.MixProject do
   end
 
   defp scripts_path do
-    System.get_env("SCRIPTS_PATH") || "scripts"
+    System.get_env("SCRIPTS_PATH") || read_dotenv_scripts_path() || "scripts"
+  end
+
+  defp read_dotenv_scripts_path do
+    if File.exists?(".env") do
+      ".env"
+      |> File.read!()
+      |> String.split("\n")
+      |> Enum.find_value(fn line ->
+        case String.split(String.trim(line), "=", parts: 2) do
+          ["SCRIPTS_PATH", value] -> String.trim(value)
+          _ -> nil
+        end
+      end)
+    end
   end
 
   defp maybe_load_custom_mix_ext do
-    custom_mix_exs = Path.join(scripts_path(), "config/mix.exs")
+    custom_mix_exs = Path.expand(Path.join(scripts_path(), "config/mix.exs"), __DIR__)
 
     bindings =
       if File.exists?(custom_mix_exs) do
