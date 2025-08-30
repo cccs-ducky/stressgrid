@@ -13,8 +13,8 @@ etc/
 # Build artifacts
 coordinator/_build/
 generator/_build/
-coordinator/management/node_modules/
-coordinator/management/build/
+coordinator/assets/node_modules/
+coordinator/priv/static/assets/
 coordinator/priv/static/management/
 client/node_modules/
 client/lib/
@@ -40,3 +40,7 @@ coordinator/packer/
 generator/packer/
 coordinator/packer.sh
 generator/packer.sh
+
+# Other
+docker-compose.yml
+Dockerfile
