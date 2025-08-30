@@ -46,10 +46,14 @@ Hooks.SettingsStorage = {
     keys.forEach(k => {
       const v = localStorage.getItem("sg_" + k);
 
-      settings[k] = k === "advanced" ? v === "true" : v;
+      if (v) {
+        settings[k] = k === "advanced" ? v === "true" : v;
+      }
     });
 
-    this.pushEvent("load_settings", settings);
+    if (Object.keys(settings).length > 0) {
+      this.pushEvent("load_settings", settings);
+    }
 
     this._saveSettingsHandler = (event) => {
       Object.entries(event.detail).forEach(([k, v]) => {
