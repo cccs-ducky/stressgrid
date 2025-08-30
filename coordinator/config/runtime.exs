@@ -75,6 +75,13 @@ if config_env() == :prod do
       ip: {0, 0, 0, 0},
       port: port
     ],
+    check_origin:
+      String.split(
+        System.get_env("CORS_ALLOWED_ORIGINS") ||
+          raise("environment variable CORS_ALLOWED_ORIGINS is missing."),
+        ","
+      )
+      |> Enum.map(fn origin -> String.trim(origin) end),
     secret_key_base: secret_key_base
 
   # ## SSL Support
