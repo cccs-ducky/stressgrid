@@ -68,6 +68,7 @@ defmodule Stressgrid.Generator.MixProject do
   defp deps do
     [
       {:gun, "~> 1.3.0"},
+      {:certifi, "~> 2.8"},
       # contains build fix for otp-26
       {:hdr_histogram,
        git: "https://github.com/HdrHistogram/hdr_histogram_erl.git",

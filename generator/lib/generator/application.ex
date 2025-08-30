@@ -28,18 +28,20 @@ defmodule Stressgrid.Generator.Application do
 
     id = Application.get_env(:generator, :generator_id)
 
-    {host, port} =
+    {host, port, scheme} =
       case Application.get_env(:generator, :coordinator_url)
            |> URI.parse() do
         %URI{scheme: "ws", host: host, port: port} ->
-          {host, port}
+          {host, port, :ws}
+        %URI{scheme: "wss", host: host, port: port} ->
+          {host, port || 443, :wss}
       end
 
     children =
       [
         Cohort.Supervisor,
         {Task.Supervisor, name: Stressgrid.Generator.TaskSupervisor},
-        {Connection, id: id, host: host, port: port},
+        {Connection, id: id, host: host, port: port, scheme: scheme},
         # children used in generator scripts
         {Registry, keys: :unique, name: PhoenixClient.SocketRegistry},
         PhoenixClient.TelemetryReporter,

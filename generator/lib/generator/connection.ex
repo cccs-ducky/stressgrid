@@ -22,7 +22,8 @@ defmodule Stressgrid.Generator.Connection do
             address_base: 0,
             previous_network_stats: nil,
             network_device_name: nil,
-            prepare_script_error: nil
+            prepare_script_error: nil,
+            scheme: :ws
 
   def start_link(args) do
     GenServer.start_link(__MODULE__, args, name: __MODULE__)
@@ -40,14 +41,33 @@ defmodule Stressgrid.Generator.Connection do
 
     host = args |> Keyword.fetch!(:host)
     port = args |> Keyword.fetch!(:port)
+    scheme = args |> Keyword.get(:scheme, :ws)
+
+    gun_opts = %{retry: 0}
+
+    gun_opts =
+      case scheme do
+        :wss ->
+          gun_opts
+          |> Map.put(:transport, :tls)
+          |> Map.put(:protocols, [:http])
+          |> Map.put(:transport_opts, [
+            verify: :verify_peer,
+            cacertfile: :certifi.cacertfile(),
+            customize_hostname_check: [
+              match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
+            ]
+          ])
+
+        :ws ->
+          gun_opts
+      end
 
     {:ok, conn_pid} =
       :gun.open(
         host |> String.to_charlist(),
         port,
-        %{
-          retry: 0
-        }
+        gun_opts
       )
 
     timeout_ref = Process.send_after(self(), :timeout, @conn_timeout)
@@ -59,7 +79,8 @@ defmodule Stressgrid.Generator.Connection do
        id: args |> Keyword.fetch!(:id),
        conn_pid: conn_pid,
        timeout_ref: timeout_ref,
-       network_device_name: network_device_name
+       network_device_name: network_device_name,
+       scheme: scheme
      }}
   end
 
