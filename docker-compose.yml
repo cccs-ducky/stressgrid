@@ -10,7 +10,6 @@ services:
       - LOGGER_LEVEL=error
     ports:
       - "4000:4000"
-      - "8000:8000"
       - "9696:9696"
 
   generator-1:

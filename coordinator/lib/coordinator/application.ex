@@ -13,7 +13,6 @@ defmodule Stressgrid.Coordinator.Application do
     CloudWatchReportWriter,
     StatsdReportWriter,
     Management,
-    ManagementConnection,
     ManagementReportWriter
   }
 
@@ -22,7 +21,6 @@ defmodule Stressgrid.Coordinator.Application do
   @impl true
   def start(_type, _args) do
     generators_port = Application.get_env(:coordinator, :generators_port)
-    management_port = Application.get_env(:coordinator, :management_port)
 
     report_interval_ms = Application.get_env(:coordinator, :report_interval_seconds) * 1000
     report_writers = Application.get_env(:coordinator, :report_writers, [])
@@ -59,7 +57,6 @@ defmodule Stressgrid.Coordinator.Application do
 
       # cowboy deps
       cowboy_sup(:generators_listener, generators_port, generators_dispatch()),
-      cowboy_sup(:management_listener, management_port, management_dispatch()),
 
       # phoenix deps
       Stressgrid.CoordinatorWeb.Telemetry,
@@ -68,7 +65,6 @@ defmodule Stressgrid.Coordinator.Application do
     ]
 
     Logger.info("Listening for generators on port #{generators_port}")
-    Logger.info("Listening for management on port #{management_port}")
 
     opts = [strategy: :one_for_one, name: Stressgrid.Coordinator.Supervisor]
 
@@ -94,19 +90,5 @@ defmodule Stressgrid.Coordinator.Application do
 
   defp generators_dispatch do
     :cowboy_router.compile([{:_, [{"/", GeneratorConnection, %{}}]}])
-  end
-
-  defp management_dispatch do
-    :cowboy_router.compile([
-      {:_,
-       [
-         {"/", :cowboy_static,
-          {:priv_file, :coordinator, "management/index.html",
-           [{:mimetypes, :cow_mimetypes, :all}]}},
-         {"/ws", ManagementConnection, %{}},
-         {"/[...]", :cowboy_static,
-          {:priv_dir, :coordinator, "management", [{:mimetypes, :cow_mimetypes, :all}]}}
-       ]}
-    ])
   end
 end

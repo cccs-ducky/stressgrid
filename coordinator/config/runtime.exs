@@ -43,7 +43,6 @@ config :coordinator, :telemetry,
 
 config :coordinator,
   generators_port: String.to_integer(System.get_env("GENERATORS_PORT", "9696")),
-  management_port: String.to_integer(System.get_env("MANAGEMENT_PORT", "8000")),
   report_interval_seconds: String.to_integer(System.get_env("REPORT_INTERVAL_SECONDS", "60")),
   report_writers:
     System.get_env("REPORT_WRITERS", "csv,cloudwatch,statsd")

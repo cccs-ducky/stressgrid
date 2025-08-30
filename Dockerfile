@@ -26,6 +26,6 @@ WORKDIR /app/generator
 RUN MIX_ENV=prod mix deps.get && \
     MIX_ENV=prod mix release
 
-EXPOSE 4000 8000 9696
+EXPOSE 4000 9696
 
 CMD ["bash"]

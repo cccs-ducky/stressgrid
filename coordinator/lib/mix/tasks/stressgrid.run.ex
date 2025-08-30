@@ -300,7 +300,7 @@ defmodule Mix.Tasks.Stressgrid.Run do
         Mix.shell().info("Run completed successfully!")
 
         if csv_url = Map.get(result, "csv_url") do
-          Mix.shell().info("CSV Report: http://localhost:8000/#{csv_url}")
+          Mix.shell().info("CSV Report: http://localhost:4000/#{csv_url}")
         end
 
         if cw_url = Map.get(result, "cw_url") do
