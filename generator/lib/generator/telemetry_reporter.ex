@@ -1,6 +1,8 @@
 defmodule PhoenixClient.TelemetryReporter do
   use GenServer
 
+  alias Stressgrid.Generator.TelemetryStore
+
   @update_interval 1000
 
   def start_link(_opts) do
@@ -17,6 +19,8 @@ defmodule PhoenixClient.TelemetryReporter do
   @impl true
   def handle_info(:update_gauges, state) do
     report_connection_count()
+    report_process_count()
+    report_memory_usage()
 
     schedule_update()
 
@@ -24,13 +28,27 @@ defmodule PhoenixClient.TelemetryReporter do
   end
 
   defp report_connection_count do
-    count =
-      Registry.select(PhoenixClient.SocketRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$1"]}])
-      |> Enum.reduce(0, fn pid, acc ->
-        if Process.alive?(pid) and PhoenixClient.Socket.connected?(pid), do: acc + 1, else: acc
-      end)
+    case Registry.select(PhoenixClient.SocketRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$1"]}]) do
+      [] -> :ok
+      pids ->
+        count = Enum.reduce(pids, 0, fn pid, acc ->
+          if Process.alive?(pid) and PhoenixClient.Socket.connected?(pid), do: acc + 1, else: acc
+        end)
 
-    :telemetry.execute([:phoenix_client, :connections, :total], %{count: count}, %{})
+        TelemetryStore.gauge(:phoenix_client_connections, count)
+    end
+  end
+
+  defp generator_id, do: Application.get_env(:generator, :generator_id)
+
+  defp report_process_count do
+    TelemetryStore.gauge(:"generator_#{generator_id()}_process_count", :erlang.system_info(:process_count))
+  end
+
+  defp report_memory_usage do
+    total_bytes = Keyword.get(:erlang.memory(), :total, 0)
+
+    TelemetryStore.gauge(:"generator_#{generator_id()}_memory_used_bytes", total_bytes)
   end
 
   defp schedule_update do

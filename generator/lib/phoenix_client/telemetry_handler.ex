@@ -29,10 +29,7 @@ defmodule PhoenixClient.TelemetryHandler do
       # Message handling events
       [:phoenix_client, :message, :pushed],
       [:phoenix_client, :message, :sent],
-      [:phoenix_client, :message, :received],
-
-      # Custom events
-      [:phoenix_client, :connections, :total]
+      [:phoenix_client, :message, :received]
     ]
 
     :telemetry.attach_many(
@@ -112,10 +109,6 @@ defmodule PhoenixClient.TelemetryHandler do
 
   def handle_event([:phoenix_client, :message, :received], _measurements, _metadata, _config) do
     TelemetryStore.inc_counter(:phoenix_messages_received, 1)
-  end
-
-  def handle_event([:phoenix_client, :connections, :total], %{count: count}, _metadata, _config) do
-    TelemetryStore.gauge(:phoenix_client_connections, count)
   end
 
   # Fallback for any unhandled events

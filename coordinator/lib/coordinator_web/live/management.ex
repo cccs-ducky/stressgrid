@@ -554,7 +554,13 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
               <% end %>
 
               <!-- Statistics -->
-              <%= for {key, values} <- Map.get(@state, "stats", %{}) |> Enum.sort_by(fn {k, _v} -> k end) do %>
+              <%= for {key, values} <- Map.get(@state, "stats", %{}) |> Enum.sort_by(fn {k, _v} ->
+                cond do
+                  String.starts_with?(to_string(k), "active_device_") -> "1_#{k}"
+                  String.starts_with?(to_string(k), "generator_") -> "2_#{k}"
+                  true -> "3_#{k}"
+                end
+              end) do %>
                 <% metric_type = get_metric_type(key) %>
                 <div class="flex justify-between items-center">
                   <div class="flex w-full">
@@ -738,6 +744,9 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
           String.ends_with?(key, "_bytes_count") ->
             format_bytes(value)
 
+          String.ends_with?(key, "_bytes_total") ->
+            format_bytes(value)
+
           String.ends_with?(key, "_count") ->
             format_number(value)
 
@@ -834,6 +843,9 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
       is_error_stat?(key) ->
         :error
 
+      String.contains?(key_str, "_total") ->
+        :total
+
       String.contains?(key_str, "cpu") ->
         :cpu
 
@@ -845,9 +857,6 @@ defmodule Stressgrid.CoordinatorWeb.ManagementLive do
 
       String.contains?(key_str, "_count") or String.contains?(key_str, "_bytes_count") ->
         :count
-
-      String.contains?(key_str, "_total") ->
-        :total
 
       true ->
         :default
