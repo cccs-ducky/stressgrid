@@ -91,6 +91,13 @@ defmodule Stressgrid.Generator.TelemetryStore do
     }
   end
 
+  def reset do
+    :ets.delete_all_objects(@scalars_table)
+    :ets.delete_all_objects(@hists_table)
+
+    :ok
+  end
+
   defp create_hist do
     {:ok, hist} = :hdr_histogram.open(60_000_000, 3)
     hist

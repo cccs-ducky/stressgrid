@@ -287,6 +287,11 @@ defmodule Stressgrid.Generator.Connection do
           }}
        )
        when is_binary(id) and is_list(blocks) do
+    # Reset telemetry store at the start of the first cohort
+    if cohorts == %{} do
+      TelemetryStore.reset()
+    end
+
     {:ok, cohort_pid} = Cohort.Supervisor.start_child(id)
 
     i =
