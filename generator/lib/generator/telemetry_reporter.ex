@@ -28,14 +28,15 @@ defmodule PhoenixClient.TelemetryReporter do
   end
 
   defp report_connection_count do
-    case Registry.select(PhoenixClient.SocketRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$1"]}]) do
-      [] -> :ok
-      pids ->
-        count = Enum.reduce(pids, 0, fn pid, acc ->
-          if Process.alive?(pid) and PhoenixClient.Socket.connected?(pid), do: acc + 1, else: acc
-        end)
+    count =
+      Registry.select(PhoenixClient.SocketRegistry, [{{:"$1", :"$2", :"$3"}, [], [:"$1"]}])
+      |> Enum.reduce(0, fn pid, acc ->
+        if Process.alive?(pid) and PhoenixClient.Socket.connected?(pid), do: acc + 1, else: acc
+      end)
 
-        TelemetryStore.gauge(:phoenix_client_connections, count)
+    # report connections only if was non-zero value was reported at least once
+    if count > 0 or TelemetryStore.has_gauge?(:phoenix_client_connections) do
+      TelemetryStore.gauge(:phoenix_client_connections, count)
     end
   end
 

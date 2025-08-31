@@ -98,6 +98,19 @@ defmodule Stressgrid.Generator.TelemetryStore do
     :ok
   end
 
+  def has_counter?(key) do
+    :ets.member(@scalars_table, {key, :count})
+  end
+
+  def has_gauge?(key) do
+    :ets.member(@scalars_table, {key, :total})
+  end
+
+  def has_histogram?(key) do
+    key_us = if Atom.to_string(key) |> String.contains?("_us"), do: key, else: :"#{key}_us"
+    :ets.member(@hists_table, key_us)
+  end
+
   defp create_hist do
     {:ok, hist} = :hdr_histogram.open(60_000_000, 3)
     hist
