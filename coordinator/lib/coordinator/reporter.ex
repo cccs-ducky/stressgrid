@@ -1,7 +1,7 @@
 defmodule Stressgrid.Coordinator.Reporter do
   use GenServer
 
-  alias Stressgrid.Coordinator.{Reporter, Management, Histogram}
+  alias Stressgrid.Coordinator.{Reporter, Management, Histogram, TelemetryStore}
 
   defstruct writer_configs: [],
             run: nil,
@@ -158,6 +158,9 @@ defmodule Stressgrid.Coordinator.Reporter do
         {:start_run, id, plan_name},
         %Reporter{writer_configs: writer_configs} = reporter
       ) do
+    # Reset coordinator telemetry store at the start of each run
+    TelemetryStore.reset()
+
     writers =
       writer_configs
       |> Enum.map(fn {module, params, interval_ms} ->
@@ -296,18 +299,42 @@ defmodule Stressgrid.Coordinator.Reporter do
           } = writer ->
             timer_ref = Process.send_after(self(), {:report, ref}, interval_ms)
 
-            scalars =
-              format_counters(counters)
-              |> Map.merge(compute_rates(counters, prev_counters, interval_ms))
-              |> Map.merge(compute_totals(generator_totals))
+            %{scalars: coordinator_scalars, hists: coordinator_hists} = TelemetryStore.collect()
 
-            state = Kernel.apply(module, :write, [id, clock, state, hists, scalars])
+            # Process coordinator telemetry the same way as generator telemetry
+            {coordinator_counters, coordinator_totals} =
+              Enum.reduce(coordinator_scalars, {%{}, %{}}, fn {key, value}, {counters_acc, totals_acc} ->
+                case key do
+                  {subkey, :count} ->
+                    {Map.put(counters_acc, subkey, value), totals_acc}
+
+                  {subkey, :total} ->
+                    {counters_acc, Map.put(totals_acc, subkey, value)}
+
+                  _ ->
+                    # Handle any other keys as-is
+                    {counters_acc, totals_acc}
+                end
+              end)
+
+            # Merge coordinator data with existing data
+            combined_counters = Map.merge(counters, coordinator_counters)
+            combined_totals = Map.merge(generator_totals, %{"coordinator" => coordinator_totals})
+
+            scalars =
+              format_counters(combined_counters)
+              |> Map.merge(compute_rates(combined_counters, prev_counters, interval_ms))
+              |> Map.merge(compute_totals(combined_totals))
+
+            combined_hists = Map.merge(hists, coordinator_hists)
+
+            state = Kernel.apply(module, :write, [id, clock, state, combined_hists, scalars])
 
             maximums =
               maximums
               |> compute_maximums(scalars)
               |> compute_maximums(
-                Enum.map(hists, fn {key, hist} -> {key, :hdr_histogram.max(hist)} end)
+                Enum.map(combined_hists, fn {key, hist} -> {key, :hdr_histogram.max(hist)} end)
               )
 
             Enum.each(hists, fn {_, hist} ->

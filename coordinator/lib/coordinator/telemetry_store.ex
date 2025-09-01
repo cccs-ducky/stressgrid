@@ -1,12 +1,12 @@
-defmodule Stressgrid.Generator.TelemetryStore do
+defmodule Stressgrid.Coordinator.TelemetryStore do
   @moduledoc """
   High-performance global telemetry store using ETS for scalars and histograms
   that can be shared across different telemetry handlers and connection types.
   Optimized for maximum write throughput.
   """
 
-  @scalars_table :telemetry_scalars
-  @hists_table :telemetry_hists
+  @scalars_table :coordinator_telemetry_scalars
+  @hists_table :coordinator_telemetry_hists
 
   def init do
     :ets.new(@scalars_table, [

@@ -13,13 +13,17 @@ defmodule Stressgrid.Coordinator.Application do
     CloudWatchReportWriter,
     StatsdReportWriter,
     Management,
-    ManagementReportWriter
+    ManagementReportWriter,
+    TelemetryStore,
+    TelemetryReporter
   }
 
   @management_report_writer_interval_ms 1_000
 
   @impl true
   def start(_type, _args) do
+    TelemetryStore.init()
+    
     generators_port = Application.get_env(:coordinator, :generators_port)
 
     report_interval_ms = Application.get_env(:coordinator, :report_interval_seconds) * 1000
@@ -41,6 +45,7 @@ defmodule Stressgrid.Coordinator.Application do
       Management.registry_spec(),
       Management,
       GeneratorRegistry,
+      TelemetryReporter,
       {Statsd,
        [
          prefix: Application.get_env(:coordinator, :telemetry)[:statsd_prefix],
