@@ -207,7 +207,7 @@ defmodule Stressgrid.Generator.Connection do
       network_stats_scalars(connection, active_device_number != 0)
 
     {:ok, cpu_percent, connection} = cpu_utilization_percent(connection)
-    telemetry_hists = Histogram.record(aggregate_hists, :cpu_percent, cpu_percent)
+    telemetry_hists = Histogram.record(aggregate_hists, :generator_cpu_percent, cpu_percent)
 
     %{scalars: telemetry_store_scalars, hists: telemetry_store_hists} = TelemetryStore.collect()
 
