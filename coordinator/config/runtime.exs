@@ -48,6 +48,7 @@ config :coordinator,
     System.get_env("REPORT_WRITERS", "csv,cloudwatch,statsd")
     |> String.split(",")
     |> Enum.map(&String.trim/1),
+  report_missing_keys: System.get_env("REPORT_MISSING_KEYS", "true") === "true",
   cooldown_ms: String.to_integer(System.get_env("COOLDOWN_MS", "10000")),
   notify_interval_ms: String.to_integer(System.get_env("NOTIFY_INTERVAL_MS", "1000"))
 

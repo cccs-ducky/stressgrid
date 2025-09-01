@@ -32,6 +32,7 @@ defmodule Stressgrid.Coordinator.ManagementReportWriter do
       |> Map.new()
 
     missing_keys = Map.keys(stats_history) -- Map.keys(stats)
+    report_missing_keys = Application.get_env(:coordinator, :report_missing_keys, true)
 
     stats_history =
       stats
@@ -47,14 +48,21 @@ defmodule Stressgrid.Coordinator.ManagementReportWriter do
 
         {key, values}
       end)
-      |> Enum.concat(
-        Enum.map(missing_keys, fn missing_key ->
-          [previous_value | _] = values = Map.get(stats_history, missing_key)
-          values = Enum.take([previous_value | values], @max_history_size)
+      |> then(fn current_stats ->
+        if report_missing_keys do
+          Enum.concat(
+            current_stats,
+            Enum.map(missing_keys, fn missing_key ->
+              [previous_value | _] = values = Map.get(stats_history, missing_key)
+              values = Enum.take([previous_value | values], @max_history_size)
 
-          {missing_key, values}
-        end)
-      )
+              {missing_key, values}
+            end)
+          )
+        else
+          current_stats
+        end
+      end)
       |> Map.new()
 
     :ok = Management.notify_all(%{"stats" => stats_history})
