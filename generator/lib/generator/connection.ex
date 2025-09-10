@@ -84,6 +84,19 @@ defmodule Stressgrid.Generator.Connection do
      }}
   end
 
+  def run_active?() do
+    GenServer.call(__MODULE__, :run_active?)
+  end
+
+  @impl true
+  def handle_call(
+        :run_active?,
+        _from,
+        connection
+      ) do
+    {:reply, connection.cohorts != %{}, connection}
+  end
+
   @impl true
   def handle_info(
         :timeout,

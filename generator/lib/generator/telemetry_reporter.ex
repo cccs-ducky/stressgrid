@@ -1,6 +1,7 @@
 defmodule PhoenixClient.TelemetryReporter do
   use GenServer
 
+  alias Stressgrid.Generator.Connection
   alias Stressgrid.Generator.TelemetryStore
 
   @update_interval 1000
@@ -18,9 +19,11 @@ defmodule PhoenixClient.TelemetryReporter do
 
   @impl true
   def handle_info(:update_gauges, state) do
-    report_connection_count()
-    report_process_count()
-    report_memory_usage()
+    if Connection.run_active?() do
+      report_connection_count()
+      report_process_count()
+      report_memory_usage()
+    end
 
     schedule_update()
 
