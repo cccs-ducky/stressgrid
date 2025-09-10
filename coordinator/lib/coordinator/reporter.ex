@@ -158,9 +158,6 @@ defmodule Stressgrid.Coordinator.Reporter do
         {:start_run, id, plan_name},
         %Reporter{writer_configs: writer_configs} = reporter
       ) do
-    # Reset coordinator telemetry store at the start of each run
-    TelemetryStore.reset()
-
     writers =
       writer_configs
       |> Enum.map(fn {module, params, interval_ms} ->
@@ -209,6 +206,8 @@ defmodule Stressgrid.Coordinator.Reporter do
 
             Kernel.apply(module, :finish, [r, id, state])
           end)
+
+        TelemetryStore.reset()
 
         reports = [
           %Report{

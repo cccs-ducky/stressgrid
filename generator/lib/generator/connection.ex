@@ -51,13 +51,13 @@ defmodule Stressgrid.Generator.Connection do
           gun_opts
           |> Map.put(:transport, :tls)
           |> Map.put(:protocols, [:http])
-          |> Map.put(:transport_opts, [
+          |> Map.put(:transport_opts,
             verify: :verify_peer,
             cacertfile: :certifi.cacertfile(),
             customize_hostname_check: [
               match_fun: :public_key.pkix_verify_hostname_match_fun(:https)
             ]
-          ])
+          )
 
         :ws ->
           gun_opts
@@ -96,6 +96,7 @@ defmodule Stressgrid.Generator.Connection do
     {:stop, :shutdown, connection}
   end
 
+  @impl true
   def handle_info(
         {:gun_up, conn_pid, _protocol},
         %Connection{conn_pid: conn_pid} = connection
@@ -287,7 +288,6 @@ defmodule Stressgrid.Generator.Connection do
           }}
        )
        when is_binary(id) and is_list(blocks) do
-    # Reset telemetry store at the start of the first cohort
     if cohorts == %{} do
       TelemetryStore.reset()
     end
@@ -340,10 +340,17 @@ defmodule Stressgrid.Generator.Connection do
       pid ->
         case Cohort.Supervisor.terminate_child(pid) do
           :ok -> :ok
-          {:error, :not_found} -> :ok # child already terminated
+          # child already terminated
+          {:error, :not_found} -> :ok
         end
 
-        %{connection | cohorts: cohorts |> Map.delete(id)}
+        next_cohorts = cohorts |> Map.delete(id)
+
+        if next_cohorts == %{} do
+          TelemetryStore.reset()
+        end
+
+        %{connection | cohorts: next_cohorts}
     end
   end
 
@@ -378,9 +385,12 @@ defmodule Stressgrid.Generator.Connection do
       |> Enum.each(fn {_, pid} ->
         case Cohort.Supervisor.terminate_child(pid) do
           :ok -> :ok
-          {:error, :not_found} -> :ok # child already terminated
+          # child already terminated
+          {:error, :not_found} -> :ok
         end
       end)
+
+    TelemetryStore.reset()
 
     %{connection | cohorts: %{}}
   end
