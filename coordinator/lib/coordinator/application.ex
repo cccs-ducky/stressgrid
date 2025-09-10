@@ -23,7 +23,7 @@ defmodule Stressgrid.Coordinator.Application do
   @impl true
   def start(_type, _args) do
     TelemetryStore.init()
-    
+
     generators_port = Application.get_env(:coordinator, :generators_port)
 
     report_interval_ms = Application.get_env(:coordinator, :report_interval_seconds) * 1000
@@ -45,7 +45,6 @@ defmodule Stressgrid.Coordinator.Application do
       Management.registry_spec(),
       Management,
       GeneratorRegistry,
-      TelemetryReporter,
       {Statsd,
        [
          prefix: Application.get_env(:coordinator, :telemetry)[:statsd_prefix],
@@ -59,6 +58,7 @@ defmodule Stressgrid.Coordinator.Application do
        ]},
       {Reporter, writer_configs: writer_configs},
       Scheduler,
+      TelemetryReporter,
 
       # cowboy deps
       cowboy_sup(:generators_listener, generators_port, generators_dispatch()),

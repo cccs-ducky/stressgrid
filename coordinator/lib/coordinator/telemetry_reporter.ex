@@ -1,6 +1,7 @@
 defmodule Stressgrid.Coordinator.TelemetryReporter do
   use GenServer
 
+  alias Stressgrid.Coordinator.Scheduler
   alias Stressgrid.Coordinator.TelemetryStore
 
   @update_interval 1000
@@ -20,10 +21,14 @@ defmodule Stressgrid.Coordinator.TelemetryReporter do
 
   @impl true
   def handle_info(:update_gauges, state) do
-    report_process_count()
-    report_memory_usage()
+    new_state = if Scheduler.run_active?() do
+      report_process_count()
+      report_memory_usage()
 
-    new_state = report_cpu_usage(state)
+      report_cpu_usage(state)
+    else
+      state
+    end
 
     schedule_update()
 

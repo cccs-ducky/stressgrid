@@ -42,6 +42,11 @@ defmodule Stressgrid.Coordinator.Scheduler do
     {:ok, %Scheduler{}}
   end
 
+  def run_active? do
+    GenServer.call(__MODULE__, :run_active?)
+  end
+
+  @impl true
   def handle_info(:notify, %Scheduler{run: run} = scheduler) do
     if run != nil do
       :ok = Management.notify_all(%{"run" => run_to_json(run)})
@@ -54,6 +59,7 @@ defmodule Stressgrid.Coordinator.Scheduler do
     end
   end
 
+  @impl true
   def handle_info({:run_op, op}, %Scheduler{run: run} = scheduler) do
     if run != nil do
       run = run |> do_run_op(op)
@@ -77,12 +83,14 @@ defmodule Stressgrid.Coordinator.Scheduler do
     end
   end
 
+  @impl true
   def handle_cast(:abort_run, %Scheduler{run: run} = scheduler) do
     :ok = do_abort_run(run)
 
     {:noreply, %{scheduler | run: nil}}
   end
 
+  @impl true
   def handle_cast(
         {:start_run, plan_name, blocks, addresses, opts},
         %Scheduler{run: run} = scheduler
@@ -90,6 +98,11 @@ defmodule Stressgrid.Coordinator.Scheduler do
     :ok = do_abort_run(run)
 
     {:noreply, %{scheduler | run: schedule_run(plan_name, blocks, addresses, opts)}}
+  end
+
+  @impl true
+  def handle_call(:run_active?, _from, scheduler) do
+    {:reply, scheduler.run != nil, scheduler}
   end
 
   defp schedule_run(plan_name, blocks, addresses, opts) do
