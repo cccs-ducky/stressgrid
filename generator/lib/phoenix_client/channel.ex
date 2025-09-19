@@ -7,7 +7,7 @@ defmodule PhoenixClient.Channel do
 
   def child_spec({socket, topic, params}) do
     %{
-      id: Module.concat(__MODULE__, topic),
+      id: {socket, topic},
       start: {__MODULE__, :start_link, [socket, topic, params]},
       restart: :temporary
     }
