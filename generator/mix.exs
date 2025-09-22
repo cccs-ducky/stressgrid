@@ -81,7 +81,9 @@ defmodule Stressgrid.Generator.MixProject do
       # deps used in generator scripts
       {:tesla, "~> 1.11"},
       {:finch, "~> 0.20"},
-      {:websocket_client, "~> 1.5"}
+      {:websocket_client, "~> 1.5",
+       git: "https://github.com/svsool/websocket_client.git",
+       tag: "249b8c98f80b9412f700dba303a36690072b95eb"}
     ] ++ Application.get_env(:stressgrid, :custom_deps, [])
   end
 end
