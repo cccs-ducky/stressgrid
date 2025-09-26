@@ -302,7 +302,7 @@ defmodule Stressgrid.Generator.Connection do
        )
        when is_binary(id) and is_list(blocks) do
     if cohorts == %{} do
-      TelemetryStore.reset()
+      reset_generator_state()
     end
 
     {:ok, cohort_pid} = Cohort.Supervisor.start_child(id)
@@ -360,7 +360,7 @@ defmodule Stressgrid.Generator.Connection do
         next_cohorts = cohorts |> Map.delete(id)
 
         if next_cohorts == %{} do
-          TelemetryStore.reset()
+          reset_generator_state()
         end
 
         %{connection | cohorts: next_cohorts}
@@ -403,9 +403,15 @@ defmodule Stressgrid.Generator.Connection do
         end
       end)
 
-    TelemetryStore.reset()
+    reset_generator_state()
 
     %{connection | cohorts: %{}}
+  end
+
+  defp reset_generator_state() do
+    :persistent_term.put(:sg_device_counter, :atomics.new(1, signed: false))
+
+    TelemetryStore.reset()
   end
 
   defp network_stats_scalars(

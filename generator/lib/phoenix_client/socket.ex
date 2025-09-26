@@ -179,6 +179,10 @@ defmodule PhoenixClient.Socket do
 
   @impl true
   def handle_info({:connected, transport_pid}, %{transport_pid: transport_pid} = state) do
+    :telemetry.execute([:phoenix_client, :connection, :connected], %{}, %{
+      url: state.url
+    })
+
     {:noreply, %{state | status: :connected}}
   end
 
@@ -229,10 +233,6 @@ defmodule PhoenixClient.Socket do
 
     case transport.open(state.url, opts) do
       {:ok, transport_pid} ->
-        :telemetry.execute([:phoenix_client, :connection, :connected], %{}, %{
-          url: state.url
-        })
-
         {:noreply, %{state | transport_pid: transport_pid, reconnect_timer: nil}}
 
       {:error, reason} ->

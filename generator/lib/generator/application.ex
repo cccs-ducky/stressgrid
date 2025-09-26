@@ -10,8 +10,7 @@ defmodule Stressgrid.Generator.Application do
   def start(_type, _args) do
     TelemetryStore.init()
 
-    device_counter = :atomics.new(1, signed: false)
-    :persistent_term.put(:sg_device_counter, device_counter)
+    :persistent_term.put(:sg_device_counter, :atomics.new(1, signed: false))
 
     telemetry_modules = Application.get_env(:generator, :telemetry_modules, [])
 
